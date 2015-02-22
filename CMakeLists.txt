@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 2.8.12)
+project(foobar)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fno-rtti -fno-exceptions")
+add_compile_options(-Wall -Wextra)
+add_executable(jzontests tests.cpp)
+add_executable(jzonprint print.cpp)
