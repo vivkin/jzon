@@ -64,7 +64,7 @@ void printJson(const jzon::value *data, jzon::value x, int indent = 0) {
         printJsonString((const char *)(data + x.integer));
         break;
     case number_tag:
-        printf("%g", x.number);
+        printf("%f", x.number);
         break;
     case false_tag:
         printf("false");
@@ -94,7 +94,7 @@ int main(int argc, char **argv) {
         fclose(fp);
 
         auto jzs = jzon::parser::parse(buffer.data());
-        printJson(jzs.data, jzs.top());
+        printJson(jzs._data, jzs.top());
         putchar('\n');
     }
     return 0;

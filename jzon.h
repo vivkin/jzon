@@ -13,6 +13,7 @@ enum {
     true_tag,
     null_tag,
 };
+
 union value {
     struct {
 #if _MSC_VER || __SIZEOF_LONG__ == 4
@@ -58,60 +59,61 @@ struct array {
     const value *end() const { return _end; }
 };
 struct stack {
-    value *data = nullptr;
-    size_t size = 0, capacity = 0;
+    value *_data = nullptr;
+    size_t _size = 0;
+    size_t _capacity = 0;
 
     stack() = default;
     stack(const stack &) = delete;
     stack &operator=(const stack &) = delete;
-    stack(stack &&x): data(x.data), size(x.size), capacity(x.capacity) {
-        x.data = nullptr;
-        x.size = x.capacity = 0;
+    stack(stack &&x) : _data(x._data), _size(x._size), _capacity(x._capacity) {
+        x._data = nullptr;
+        x._size = x._capacity = 0;
     }
     stack &operator=(stack &&x) {
-        free(data);
-        data = x.data;
-        size = x.size;
-        capacity = x.capacity;
-        x.data = nullptr;
-        x.size = x.capacity = 0;
+        free(_data);
+        _data = x._data;
+        _size = x._size;
+        _capacity = x._capacity;
+        x._data = nullptr;
+        x._size = x._capacity = 0;
         return *this;
     }
     ~stack() {
-        free(data);
+        free(_data);
     }
     void grow(size_t n = 1) {
-        capacity = capacity ? capacity * 2 : 16 / sizeof(value);
-        while (size + n >= capacity)
-            capacity *= 2;
-        data = static_cast<value *>(realloc(data, capacity * sizeof(value)));
+        _capacity = _capacity * 2 + 8;
+        if (_capacity < n)
+            _capacity = n;
+        _data = static_cast<value *>(realloc(_data, _capacity * sizeof(value)));
     }
     void push(value x) {
-        if (size == capacity)
-            grow();
-        data[size++] = x;
+        if (_size == _capacity)
+            grow(_size + 1);
+        _data[_size++] = x;
     }
     value &top() {
-        return data[size - 1];
+        return _data[_size - 1];
     }
     void push(const value *p, size_t n) {
-        if (size + n >= capacity)
-            grow(n);
+        if (_capacity < _size + n)
+            grow(_size + n);
         while (n--)
-            data[size++] = *p++;
+            _data[_size++] = *p++;
     }
     const value *pop(size_t n) {
-        size -= n;
-        return data + size;
+        _size -= n;
+        return _data + _size;
     }
     char &put(size_t index) {
-        index += size * sizeof(value);
-        if (index >= capacity * sizeof(value))
-            grow();
-        return ((char *)data)[index];
+        index += _size * sizeof(value);
+        if (index >= _capacity * sizeof(value))
+            grow(_size + 1);
+        return ((char *)_data)[index];
     }
     void add(size_t length) {
-        size += (length + sizeof(value) - 1) / sizeof(value);
+        _size += (length + sizeof(value) - 1) / sizeof(value);
     }
 };
 struct parser {
@@ -233,15 +235,15 @@ struct parser {
                 break;
             } else if (*s == '[') {
                 temp.push({frame, array_tag, false});
-                frame = temp.size;
+                frame = temp._size;
                 ++s;
             } else if (*s == '{') {
                 temp.push({frame, object_tag, false});
-                frame = temp.size;
+                frame = temp._size;
                 ++s;
             } else if (*s == ']' || *s == '}') {
-                size_t offset = result.size;
-                size_t length = temp.size - frame;
+                size_t offset = result._size;
+                size_t length = temp._size - frame;
                 result.push({length, number_tag, true});
                 result.push(temp.pop(length), length);
                 frame = temp.top().integer;
@@ -252,7 +254,7 @@ struct parser {
             } else if (*s == ':') {
                 ++s;
             } else if (*s == '"') {
-                size_t offset = result.size;
+                size_t offset = result._size;
                 if (parse_string(result, ++s, &s))
                     abort();
                 temp.push({offset, string_tag, false});
