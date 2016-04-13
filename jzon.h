@@ -15,7 +15,7 @@ enum {
 };
 union value {
     struct {
-#if __SIZEOF_LONG__ == 4
+#if _MSC_VER || __SIZEOF_LONG__ == 4
         unsigned long integer : 32;
         unsigned long _dummy : 16;
 #else
