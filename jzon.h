@@ -1,5 +1,6 @@
 #pragma once
 
+#include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
 
@@ -113,6 +114,7 @@ struct stack {
         _size += (length + sizeof(value) - 1) / sizeof(value);
     }
 };
+
 struct parser {
     enum {
         invalid_number = 1,
@@ -274,6 +276,43 @@ struct parser {
         }
         result.push(temp.top());
         return result;
+    }
+};
+
+struct view {
+    const value *_data;
+    value _value;
+
+    view(const value *data, value x) : _data(data), _value(x) {
+    }
+
+    value_tag tag() const {
+        return _value.tag();
+    }
+
+    double get_number() const {
+        assert(_value.tag() == number_tag);
+        return _value.number;
+    }
+
+    bool get_bool() const {
+        assert(_value.tag() == true_tag || _value.tag() == false_tag);
+        return _value.tag() == true_tag;
+    }
+
+    const char *get_string() const {
+        assert(_value.tag() == string_tag);
+        return (const char *)(_data + _value.integer);
+    }
+
+    view operator[](size_t index) const {
+        assert(_value.tag() == array_tag || _value.tag() == object_tag);
+        return {_data, _data[_value.integer + index + 1]};
+    }
+
+    size_t size() const {
+        assert(_value.tag() == array_tag || _value.tag() == object_tag);
+        return _data[_value.integer].integer;
     }
 };
 }

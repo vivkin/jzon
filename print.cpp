@@ -27,16 +27,15 @@ void printJsonString(const char *s) {
     putchar('"');
 }
 
-void printJson(const jzon::value *data, jzon::value x, int indent = 0) {
+void printJson(jzon::view v, int indent = 0) {
     using namespace jzon;
-    switch (x.tag()) {
+    switch (v.tag()) {
     case array_tag: {
-        auto a = array(data, x);
-        if (a.size()) {
+        if (v.size()) {
             puts("[");
-            for (auto i : a) {
+            for (size_t i = 0; i < v.size(); ++i) {
                 printf("%*s", indent + 2, "");
-                printJson(data, i, indent + 2);
+                printJson(v[i], indent + 2);
                 puts(",");
             }
             printf("%*s]", indent, "");
@@ -45,14 +44,13 @@ void printJson(const jzon::value *data, jzon::value x, int indent = 0) {
         }
     } break;
     case object_tag: {
-        auto a = array(data, x);
-        if (a.size()) {
+        if (v.size()) {
             puts("{");
-            for (size_t i = 0; i < a.size(); i += 2) {
+            for (size_t i = 0; i < v.size(); i += 2) {
                 printf("%*s", indent + 2, "");
-                printJson(data, a[i + 0], indent + 2);
+                printJson(v[i + 0], indent + 2);
                 printf(": ");
-                printJson(data, a[i + 1], indent + 2);
+                printJson(v[i + 1], indent + 2);
                 puts(",");
             }
             printf("%*s}", indent, "");
@@ -61,10 +59,10 @@ void printJson(const jzon::value *data, jzon::value x, int indent = 0) {
         }
     } break;
     case string_tag:
-        printJsonString((const char *)(data + x.integer));
+        printJsonString(v.get_string());
         break;
     case number_tag:
-        printf("%f", x.number);
+        printf("%f", v.get_number());
         break;
     case false_tag:
         printf("false");
@@ -94,7 +92,7 @@ int main(int argc, char **argv) {
         fclose(fp);
 
         auto jzs = jzon::parser::parse(buffer.data());
-        printJson(jzs._data, jzs.top());
+        printJson({jzs._data, jzs.top()});
         putchar('\n');
     }
     return 0;
