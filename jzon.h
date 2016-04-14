@@ -4,7 +4,7 @@
 #include <stdlib.h>
 
 namespace jzon {
-enum {
+enum value_tag {
     number_tag,
     string_tag,
     object_tag,
@@ -26,29 +26,25 @@ union value {
     };
     double number;
 
-    constexpr value(unsigned long x, int tag, bool flag)
-        : integer(x), _tag(tag | (flag ? 0xFFF8 : 0xFFF0)) {
+    value() = default;
+    constexpr value(unsigned long x, value_tag tag)
+        : integer(x), _tag(tag | 0xFFF0) {
     }
     constexpr value(double x)
         : number(x) {
     }
     constexpr value(bool x)
-        : value(0, x ? true_tag : false_tag, false) {
+        : value(0, x ? true_tag : false_tag) {
     }
     constexpr value(decltype(nullptr))
-        : value(0, null_tag, false) {
+        : value(0, null_tag) {
     }
-    value() = default;
-    value(const void *x, int tag)
-        : value(reinterpret_cast<unsigned long>(x), tag, true) {
-    }
-    constexpr int tag() const {
-        return _tag > 0xFFF0 ? _tag & 7 : number_tag;
-    }
-    constexpr bool flag() const {
-        return _tag > 0xFFF8;
+
+    constexpr value_tag tag() const {
+        return _tag > 0xFFF0 ? value_tag(_tag & 0xF) : number_tag;
     }
 };
+
 struct array {
     const value *_begin, *_end;
 
@@ -58,6 +54,7 @@ struct array {
     const value *begin() const { return _begin; }
     const value *end() const { return _end; }
 };
+
 struct stack {
     value *_data = nullptr;
     size_t _size = 0;
@@ -234,20 +231,20 @@ struct parser {
             if (*s == 0) {
                 break;
             } else if (*s == '[') {
-                temp.push({frame, array_tag, false});
+                temp.push({frame, array_tag});
                 frame = temp._size;
                 ++s;
             } else if (*s == '{') {
-                temp.push({frame, object_tag, false});
+                temp.push({frame, object_tag});
                 frame = temp._size;
                 ++s;
             } else if (*s == ']' || *s == '}') {
                 size_t offset = result._size;
                 size_t length = temp._size - frame;
-                result.push({length, number_tag, true});
+                result.push({length, number_tag});
                 result.push(temp.pop(length), length);
                 frame = temp.top().integer;
-                temp.top() = {offset, *s == ']' ? array_tag : object_tag, false};
+                temp.top() = {offset, *s == ']' ? array_tag : object_tag};
                 ++s;
             } else if (*s == ',') {
                 ++s;
@@ -257,7 +254,7 @@ struct parser {
                 size_t offset = result._size;
                 if (parse_string(result, ++s, &s))
                     abort();
-                temp.push({offset, string_tag, false});
+                temp.push({offset, string_tag});
             } else if (*s >= '0' && *s <= '9') {
                 temp.push(parse_number(s, &s));
             } else if (s[0] == '-' && s[1] >= '0' && s[1] <= '9') {

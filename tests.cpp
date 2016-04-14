@@ -19,11 +19,11 @@
 
 int main(int __unused argc, char __unused **argv) {
     double v[] = {0, 1.0, -1.0, 1.0 / 3.0, -1.0 / 3.0, 1e308, -1e308, INFINITY, -INFINITY, NAN,
-                  jzon::value{0xDEADBEEF, jzon::string_tag, false}.number,
-                  jzon::value{0xBADCAB1E, jzon::string_tag, true}.number,
+                  jzon::value{0xDEADBEEF, jzon::string_tag}.number,
+                  jzon::value{0xBADCAB1E, jzon::string_tag}.number,
                   jzon::value{true}.number,
                   jzon::value{false}.number,
-                  jzon::value{~1u, jzon::array_tag, false}.number,
+                  jzon::value{~1u, jzon::array_tag}.number,
                   jzon::value{0.0}.number};
     printf("%10s %5s %5s %8s %8s\n", "", "==", "isnan", "tag", "payload");
     for (auto x : v) {
