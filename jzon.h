@@ -10,8 +10,7 @@ enum value_tag {
     string_tag,
     object_tag,
     array_tag,
-    false_tag,
-    true_tag,
+    bool_tag,
     null_tag,
 };
 
@@ -35,7 +34,7 @@ union value {
         : number(x) {
     }
     constexpr value(bool x)
-        : value(0, x ? true_tag : false_tag) {
+        : value(x ? 1 : 0, bool_tag) {
     }
     constexpr value(decltype(nullptr))
         : value(0, null_tag) {
@@ -290,28 +289,35 @@ struct view {
         return _value.tag();
     }
 
+    bool is_number() const { return _value.tag() == number_tag; }
+    bool is_string() const { return _value.tag() == string_tag; }
+    bool is_object() const { return _value.tag() == object_tag; }
+    bool is_array() const { return _value.tag() == array_tag; }
+    bool is_bool() const { return _value.tag() == bool_tag; }
+    bool is_null() const { return _value.tag() == null_tag; }
+
     double get_number() const {
-        assert(_value.tag() == number_tag);
+        assert(is_number());
         return _value.number;
     }
 
     bool get_bool() const {
-        assert(_value.tag() == true_tag || _value.tag() == false_tag);
-        return _value.tag() == true_tag;
+        assert(is_bool());
+        return _value.integer ? true : false;
     }
 
     const char *get_string() const {
-        assert(_value.tag() == string_tag);
+        assert(is_string());
         return (const char *)(_data + _value.integer);
     }
 
     view operator[](size_t index) const {
-        assert(_value.tag() == array_tag || _value.tag() == object_tag);
+        assert(is_array() || is_object());
         return {_data, _data[_value.integer + index + 1]};
     }
 
     size_t size() const {
-        assert(_value.tag() == array_tag || _value.tag() == object_tag);
+        assert(is_array() || is_object());
         return _data[_value.integer].integer;
     }
 };

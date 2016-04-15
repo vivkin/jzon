@@ -64,11 +64,8 @@ void printJson(jzon::view v, int indent = 0) {
     case number_tag:
         printf("%f", v.get_number());
         break;
-    case false_tag:
-        printf("false");
-        break;
-    case true_tag:
-        printf("true");
+    case bool_tag:
+        printf(v.get_bool() ? "true" : "false");
         break;
     case null_tag:
         printf("null");
