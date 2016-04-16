@@ -6,44 +6,33 @@
 
 namespace jzon {
 enum value_tag {
-    number_tag,
-    string_tag,
-    object_tag,
-    array_tag,
-    bool_tag,
+    number_tag = 0xFFF0,
     null_tag,
+    bool_tag,
+    string_tag,
+    array_tag,
+    object_tag,
 };
 
 union value {
+    double number;
     struct {
 #if _MSC_VER || __SIZEOF_LONG__ == 4
-        unsigned long integer : 32;
-        unsigned long _dummy : 16;
+        unsigned long payload : 32;
+        unsigned long padding : 16;
 #else
-        unsigned long integer : 48;
+        unsigned long payload : 48;
 #endif
-        unsigned long _tag : 16;
+        value_tag tag : 16;
     };
-    double number;
 
     value() = default;
-    constexpr value(unsigned long x, value_tag tag)
-        : integer(x), _tag(tag | 0xFFF0) {
-    }
-    constexpr value(double x)
-        : number(x) {
-    }
-    constexpr value(bool x)
-        : value(x ? 1 : 0, bool_tag) {
-    }
-    constexpr value(decltype(nullptr))
-        : value(0, null_tag) {
-    }
-
-    constexpr value_tag tag() const {
-        return _tag > 0xFFF0 ? value_tag(_tag & 0xF) : number_tag;
-    }
+    constexpr value(double n) : number(n) {}
+    constexpr value(unsigned long payload, value_tag tag) : payload(payload), tag(tag) {}
+    constexpr bool is_nan() const { return tag > number_tag; }
 };
+
+static_assert(sizeof(value) == sizeof(double), "value size must be 8");
 
 struct stack {
     value *_data = nullptr;
@@ -234,7 +223,7 @@ struct parser {
                 size_t length = temp._size - frame;
                 result.push({length, number_tag});
                 result.push(temp.pop(length), length);
-                frame = temp.top().integer;
+                frame = temp.top().payload;
                 temp.top() = {offset, *s == ']' ? array_tag : object_tag};
                 ++s;
             } else if (*s == ',') {
@@ -252,13 +241,13 @@ struct parser {
                 temp.push(-parse_number(++s, &s));
             } else if (s[0] == 'f' && s[1] == 'a' && s[2] == 'l' && s[3] == 's' && s[4] == 'e') {
                 s += 5;
-                temp.push(false);
+                temp.push({false, bool_tag});
             } else if (s[0] == 't' && s[1] == 'r' && s[2] == 'u' && s[3] == 'e') {
                 s += 4;
-                temp.push(true);
+                temp.push({true, bool_tag});
             } else if (s[0] == 'n' && s[1] == 'u' && s[2] == 'l' && s[3] == 'l') {
                 s += 4;
-                temp.push(nullptr);
+                temp.push({0, null_tag});
             } else {
                 abort();
             }
@@ -272,19 +261,15 @@ struct view {
     const value *_data;
     value _value;
 
-    view(const value *data, value x) : _data(data), _value(x) {
-    }
+    view(const value *data, value x) : _data(data), _value(x) {}
 
-    value_tag tag() const {
-        return _value.tag();
-    }
-
-    bool is_number() const { return _value.tag() == number_tag; }
-    bool is_string() const { return _value.tag() == string_tag; }
-    bool is_object() const { return _value.tag() == object_tag; }
-    bool is_array() const { return _value.tag() == array_tag; }
-    bool is_bool() const { return _value.tag() == bool_tag; }
-    bool is_null() const { return _value.tag() == null_tag; }
+    bool is_number() const { return !_value.is_nan(); }
+    bool is_string() const { return _value.tag == string_tag; }
+    bool is_object() const { return _value.tag == object_tag; }
+    bool is_array() const { return _value.tag == array_tag; }
+    bool is_bool() const { return _value.tag == bool_tag; }
+    bool is_null() const { return _value.tag == null_tag; }
+    value_tag tag() const { return _value.is_nan() ? _value.tag : number_tag; }
 
     double get_number() const {
         assert(is_number());
@@ -293,22 +278,22 @@ struct view {
 
     bool get_bool() const {
         assert(is_bool());
-        return _value.integer ? true : false;
+        return _value.payload ? true : false;
     }
 
     const char *get_string() const {
         assert(is_string());
-        return (const char *)(_data + _value.integer);
+        return (const char *)(_data + _value.payload);
     }
 
     view operator[](size_t index) const {
         assert(is_array() || is_object());
-        return {_data, _data[_value.integer + index + 1]};
+        return {_data, _data[_value.payload + index + 1]};
     }
 
     size_t size() const {
         assert(is_array() || is_object());
-        return _data[_value.integer].integer;
+        return _data[_value.payload].payload;
     }
 };
 }
