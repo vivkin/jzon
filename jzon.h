@@ -45,16 +45,6 @@ union value {
     }
 };
 
-struct array {
-    const value *_begin, *_end;
-
-    array(const value *data, value x) : _begin(data + x.integer + 1), _end(_begin + _begin[-1].integer) {}
-    value operator[](size_t index) const { return _begin[index]; }
-    size_t size() const { return _end - _begin; }
-    const value *begin() const { return _begin; }
-    const value *end() const { return _end; }
-};
-
 struct stack {
     value *_data = nullptr;
     size_t _size = 0;
