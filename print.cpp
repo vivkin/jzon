@@ -59,13 +59,13 @@ void printJson(jzon::view v, int indent = 0) {
         }
     } break;
     case string_tag:
-        printJsonString(v.get_string());
+        printJsonString(v.to_string());
         break;
     case number_tag:
-        printf("%f", v.get_number());
+        printf("%f", v.to_number());
         break;
     case bool_tag:
-        printf(v.get_bool() ? "true" : "false");
+        printf(v.to_bool() ? "true" : "false");
         break;
     case null_tag:
         printf("null");

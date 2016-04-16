@@ -261,27 +261,26 @@ struct view {
     const value *_data;
     value _value;
 
-    view(const value *data, value x) : _data(data), _value(x) {}
+    value_tag tag() const {
+        return _value.is_nan() ? _value.tag : number_tag;
+    }
 
     bool is_number() const { return !_value.is_nan(); }
-    bool is_string() const { return _value.tag == string_tag; }
-    bool is_object() const { return _value.tag == object_tag; }
-    bool is_array() const { return _value.tag == array_tag; }
-    bool is_bool() const { return _value.tag == bool_tag; }
     bool is_null() const { return _value.tag == null_tag; }
-    value_tag tag() const { return _value.is_nan() ? _value.tag : number_tag; }
+    bool is_bool() const { return _value.tag == bool_tag; }
+    bool is_string() const { return _value.tag == string_tag; }
+    bool is_array() const { return _value.tag == array_tag; }
+    bool is_object() const { return _value.tag == object_tag; }
 
-    double get_number() const {
+    double to_number() const {
         assert(is_number());
         return _value.number;
     }
-
-    bool get_bool() const {
+    bool to_bool() const {
         assert(is_bool());
         return _value.payload ? true : false;
     }
-
-    const char *get_string() const {
+    const char *to_string() const {
         assert(is_string());
         return (const char *)(_data + _value.payload);
     }
