@@ -362,10 +362,7 @@ struct view {
         return _data[_value.payload].payload;
     }
 
-#define INDENT(d) buffer.append(offset, ((d) * 2 + 1) < (sizeof(offset) - 1) ? ((d) * 2 + 1) : (sizeof(offset) - 1));
-    void stringify(vector<char> &buffer, size_t depth = 0) const {
-        static const char offset[] = "\n                                                                ";
-
+    void stringify(vector<char> &buffer) const {
         char temp[32];
         switch (tag()) {
         case number_tag:
@@ -421,10 +418,8 @@ struct view {
             for (size_t i = 0; i < size(); ++i) {
                 if (i > 0)
                     buffer.push_back(',');
-                INDENT(depth + 1);
-                operator[](i).stringify(buffer, depth + 1);
+                operator[](i).stringify(buffer);
             }
-            INDENT(depth);
             buffer.push_back(']');
             break;
 
@@ -433,12 +428,10 @@ struct view {
             for (size_t i = 0; i < size(); i += 2) {
                 if (i > 0)
                     buffer.push_back(',');
-                INDENT(depth + 1);
-                operator[](i).stringify(buffer, depth + 1);
+                operator[](i).stringify(buffer);
                 buffer.append(": ", 2);
-                operator[](i + 1).stringify(buffer, depth + 1);
+                operator[](i + 1).stringify(buffer);
             }
-            INDENT(depth);
             buffer.push_back('}');
             break;
         }
