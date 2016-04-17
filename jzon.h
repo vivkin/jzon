@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -89,7 +90,7 @@ public:
         if (n < _size) {
             _size = n;
         }
-        _data = static_cast<value *>(realloc(_data, sizeof(T) * n));
+        _data = static_cast<T *>(realloc(_data, sizeof(T) * n));
         _capacity = n;
     }
 
@@ -359,6 +360,87 @@ struct view {
     size_t size() const {
         assert(is_array() || is_object());
         return _data[_value.payload].payload;
+    }
+
+    void indent(vector<char> &buffer, int depth) const {
+        static const char offset[] =
+            "\n                                                                ";
+        size_t n = (buffer.size() ? 1 : 0) + depth * 2;
+        buffer.append(offset, n < sizeof(offset) - 1 ? n : sizeof(offset) - 1);
+    }
+
+    void stringify(vector<char> &buffer, int depth = 0) const {
+        char temp[32];
+        switch (tag()) {
+        case number_tag:
+            buffer.append(temp, snprintf(temp, sizeof(temp), "%.10g", to_number()));
+            break;
+        case null_tag:
+            buffer.append("null", 4);
+            break;
+        case bool_tag:
+            if (to_bool())
+                buffer.append("true", 4);
+            else
+                buffer.append("false", 5);
+            break;
+        case string_tag:
+            buffer.push_back('"');
+            for (const char *s = to_string(); *s;) {
+                char c = *s++;
+                switch (c) {
+                case '\b':
+                    buffer.append("\\b", 2);
+                    break;
+                case '\f':
+                    buffer.append("\\f", 2);
+                    break;
+                case '\n':
+                    buffer.append("\\n", 2);
+                    break;
+                case '\r':
+                    buffer.append("\\r", 2);
+                    break;
+                case '\t':
+                    buffer.append("\\t", 2);
+                    break;
+                case '\\':
+                    buffer.append("\\\\", 2);
+                    break;
+                case '"':
+                    buffer.append("\\\"", 2);
+                    break;
+                default:
+                    buffer.push_back(c);
+                }
+            }
+            buffer.push_back('"');
+            break;
+        case array_tag:
+            buffer.push_back('[');
+            for (size_t i = 0; i < size(); ++i) {
+                if (i > 0)
+                    buffer.push_back(',');
+                indent(buffer, depth + 1);
+                operator[](i).stringify(buffer, depth + 1);
+            }
+            indent(buffer, depth);
+            buffer.push_back(']');
+            break;
+        case object_tag:
+            buffer.push_back('{');
+            for (size_t i = 0; i < size(); i += 2) {
+                if (i > 0)
+                    buffer.push_back(',');
+                indent(buffer, depth + 1);
+                operator[](i).stringify(buffer, depth + 1);
+                buffer.append(": ", 2);
+                operator[](i + 1).stringify(buffer, depth + 1);
+            }
+            indent(buffer, depth);
+            buffer.push_back('}');
+            break;
+        }
     }
 };
 }
