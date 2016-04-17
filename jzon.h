@@ -329,8 +329,8 @@ class view {
     value _value;
 
 public:
-    view(const vector<value> &data) : _data(data), _value(data.back()) {}
-    view(const vector<value> &data, size_t index) : _data(data), _value(data[index]) {}
+    view(const vector<value> &data, value v) : _data(data), _value(v) {}
+    view(const vector<value> &data) : view(data, data.back()) {}
 
     value_tag tag() const {
         return _value.is_nan() ? _value.tag : number_tag;
@@ -356,14 +356,14 @@ public:
         return _data[_value.payload].s;
     }
 
-    view operator[](size_t index) const {
-        assert(is_array() || is_object());
-        return {_data, _value.payload + index + 1};
-    }
-
     size_t size() const {
         assert(is_array() || is_object());
         return _data[_value.payload].payload;
+    }
+
+    view operator[](size_t index) const {
+        assert(is_array() || is_object());
+        return {_data, _data[_value.payload + index + 1]};
     }
 };
 
