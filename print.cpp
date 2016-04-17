@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
         fclose(fp);
 
         auto jzs = jzon::parser::parse(buffer.data());
-        printJson({jzs._data, jzs.back()});
+        printJson({jzs.begin(), jzs.back()});
         putchar('\n');
     }
     return 0;

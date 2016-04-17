@@ -36,68 +36,113 @@ union value {
 
 static_assert(sizeof(value) == sizeof(double), "value size must be 8");
 
-struct stack {
-    value *_data = nullptr;
+template <typename T>
+class vector {
+    T *_data = nullptr;
     size_t _size = 0;
     size_t _capacity = 0;
 
-    stack() = default;
-    stack(const stack &) = delete;
-    stack &operator=(const stack &) = delete;
-    stack(stack &&x) : _data(x._data), _size(x._size), _capacity(x._capacity) {
+public:
+    vector() = default;
+
+    ~vector() {
+        free(_data);
+    }
+
+    vector(const vector &x) : _size(x._size), _capacity(x._size) {
+        _data = (T *)malloc(sizeof(T) * _size);
+        memcpy(_data, x._data, sizeof(T) * _size);
+    }
+
+    vector(vector &&x) : _data(x._data), _size(x._size), _capacity(x._capacity) {
         x._data = nullptr;
         x._size = x._capacity = 0;
     }
-    stack &operator=(stack &&x) {
+
+    vector &operator=(const vector &x) {
+        set_capacity(x._size);
+        memcpy(_data, x._data, sizeof(T) * x._size);
+        _size = x._size;
+        return *this;
+    }
+
+    vector &operator=(vector &&x) {
         free(_data);
+
         _data = x._data;
         _size = x._size;
         _capacity = x._capacity;
+
         x._data = nullptr;
         x._size = x._capacity = 0;
+
         return *this;
     }
-    ~stack() {
-        free(_data);
-    }
 
-    void grow(size_t n) {
-        _capacity = _capacity * 2 + 8;
+    void resize(size_t n) {
         if (_capacity < n)
-            _capacity = n;
-        _data = static_cast<value *>(realloc(_data, _capacity * sizeof(value)));
+            set_capacity(n);
+        _size = n;
     }
 
-    void append(const value *x, size_t n) {
-        if (_capacity < _size + n)
-            grow(_size + n);
-        memcpy(_data + _size, x, n * sizeof(value));
-        _size += n;
+    void set_capacity(size_t n) {
+        if (n < _size) {
+            _size = n;
+        }
+        _data = static_cast<value *>(realloc(_data, sizeof(T) * n));
+        _capacity = n;
     }
 
-    void push_back(value x) {
+    void append(const T *x, size_t n) {
+        size_t new_size = _size + n;
+        if (_capacity < new_size) {
+            size_t new_capacity = _capacity * 2 + 8;
+            set_capacity(new_capacity < new_size ? new_size : new_capacity);
+        }
+        memcpy(_data + _size, x, sizeof(T) * n);
+        _size = new_size;
+    }
+
+    void push_back(const T &x) {
         if (_size == _capacity)
-            grow(_size + 1);
+            set_capacity(_capacity * 2 + 8);
         _data[_size++] = x;
     }
 
-    const value *pop(size_t n) {
-        _size -= n;
-        return _data + _size;
+    void pop_back() {
+        assert(!empty());
+        --_size;
     }
 
-    value &back() {
+    T &operator[](size_t i) {
+        assert(i < size());
+        return _data[i];
+    }
+    const T &operator[](size_t i) const {
+        assert(i < size());
+        return _data[i];
+    }
+    T &front() {
+        assert(!empty());
+        return _data[0];
+    }
+    const T &front() const {
+        assert(!empty());
+        return _data[0];
+    }
+    T &back() {
         assert(!empty());
         return _data[_size - 1];
     }
-    const value &back() const {
+    const T &back() const {
         assert(!empty());
         return _data[_size - 1];
     }
-    value *begin() { return _data; }
-    const value *begin() const { return _data; }
-    value *end() { return _data + _size; }
-    const value *end() const { return _data + _size; }
+
+    T *begin() { return _data; }
+    const T *begin() const { return _data; }
+    T *end() { return _data + _size; }
+    const T *end() const { return _data + _size; }
 
     bool empty() const { return _size == 0; }
     size_t size() const { return _size; }
@@ -150,14 +195,14 @@ struct parser {
         return n;
     }
 
-    static int parse_string(stack &v, const char *s, const char **endptr) {
+    static int parse_string(vector<value> &v, const char *s, const char **endptr) {
         value temp;
         size_t n = 0;
 #define PUT(c)                            \
     do {                                  \
         temp.s[n++ % sizeof(temp)] = (c); \
         if ((n % sizeof(temp)) == 0)      \
-            v.push_back(temp);                 \
+            v.push_back(temp);            \
     } while (0)
 
         for (; *s; ++s) {
@@ -223,8 +268,8 @@ struct parser {
         return invalid_string_char;
     }
 
-    static stack parse(const char *s) {
-        stack result, temp;
+    static vector<value> parse(const char *s) {
+        vector<value> result, temp;
         size_t frame = 0;
         while (*s) {
             s = skip_ws(s);
@@ -232,17 +277,18 @@ struct parser {
                 break;
             } else if (*s == '[') {
                 temp.push_back({frame, array_tag});
-                frame = temp._size;
+                frame = temp.size();
                 ++s;
             } else if (*s == '{') {
                 temp.push_back({frame, object_tag});
-                frame = temp._size;
+                frame = temp.size();
                 ++s;
             } else if (*s == ']' || *s == '}') {
-                size_t offset = result._size;
-                size_t length = temp._size - frame;
+                size_t offset = result.size();
+                size_t length = temp.size() - frame;
                 result.push_back({length, number_tag});
-                result.append(temp.pop(length), length);
+                result.append(temp.end() - length, length);
+                temp.resize(temp.size() - length);
                 frame = temp.back().payload;
                 temp.back() = {offset, *s == ']' ? array_tag : object_tag};
                 ++s;
@@ -251,7 +297,7 @@ struct parser {
             } else if (*s == ':') {
                 ++s;
             } else if (*s == '"') {
-                size_t offset = result._size;
+                size_t offset = result.size();
                 if (parse_string(result, ++s, &s))
                     abort();
                 temp.push_back({offset, string_tag});
