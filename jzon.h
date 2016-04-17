@@ -362,28 +362,27 @@ struct view {
         return _data[_value.payload].payload;
     }
 
-    void indent(vector<char> &buffer, int depth) const {
-        static const char offset[] =
-            "\n                                                                ";
-        size_t n = (buffer.size() ? 1 : 0) + depth * 2;
-        buffer.append(offset, n < sizeof(offset) - 1 ? n : sizeof(offset) - 1);
-    }
+#define INDENT(d) buffer.append(offset, ((d) * 2 + 1) < (sizeof(offset) - 1) ? ((d) * 2 + 1) : (sizeof(offset) - 1));
+    void stringify(vector<char> &buffer, size_t depth = 0) const {
+        static const char offset[] = "\n                                                                ";
 
-    void stringify(vector<char> &buffer, int depth = 0) const {
         char temp[32];
         switch (tag()) {
         case number_tag:
             buffer.append(temp, snprintf(temp, sizeof(temp), "%.10g", to_number()));
             break;
+
         case null_tag:
             buffer.append("null", 4);
             break;
+
         case bool_tag:
             if (to_bool())
                 buffer.append("true", 4);
             else
                 buffer.append("false", 5);
             break;
+
         case string_tag:
             buffer.push_back('"');
             for (const char *s = to_string(); *s;) {
@@ -416,28 +415,30 @@ struct view {
             }
             buffer.push_back('"');
             break;
+
         case array_tag:
             buffer.push_back('[');
             for (size_t i = 0; i < size(); ++i) {
                 if (i > 0)
                     buffer.push_back(',');
-                indent(buffer, depth + 1);
+                INDENT(depth + 1);
                 operator[](i).stringify(buffer, depth + 1);
             }
-            indent(buffer, depth);
+            INDENT(depth);
             buffer.push_back(']');
             break;
+
         case object_tag:
             buffer.push_back('{');
             for (size_t i = 0; i < size(); i += 2) {
                 if (i > 0)
                     buffer.push_back(',');
-                indent(buffer, depth + 1);
+                INDENT(depth + 1);
                 operator[](i).stringify(buffer, depth + 1);
                 buffer.append(": ", 2);
                 operator[](i + 1).stringify(buffer, depth + 1);
             }
-            indent(buffer, depth);
+            INDENT(depth);
             buffer.push_back('}');
             break;
         }
