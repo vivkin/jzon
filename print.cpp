@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
         auto jzs = jzon::parser::parse(source.data());
         auto root = jzon::view(jzs);
         jzon::vector<char> buffer;
-        root.stringify(buffer);
+        jzon::stringify(buffer, root);
         buffer.push_back('\0');
         buffer.pop_back();
         printf("%s\n", buffer.begin());

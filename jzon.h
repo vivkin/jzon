@@ -365,80 +365,91 @@ public:
         assert(is_array() || is_object());
         return _data[_value.payload].payload;
     }
-
-    void stringify(vector<char> &buffer) const {
-        char temp[32];
-        switch (tag()) {
-        case number_tag:
-            buffer.append(temp, snprintf(temp, sizeof(temp), "%.10g", to_number()));
-            break;
-
-        case null_tag:
-            buffer.append("null", 4);
-            break;
-
-        case bool_tag:
-            if (to_bool())
-                buffer.append("true", 4);
-            else
-                buffer.append("false", 5);
-            break;
-
-        case string_tag:
-            buffer.push_back('"');
-            for (const char *s = to_string(); *s;) {
-                char c = *s++;
-                switch (c) {
-                case '\b':
-                    buffer.append("\\b", 2);
-                    break;
-                case '\f':
-                    buffer.append("\\f", 2);
-                    break;
-                case '\n':
-                    buffer.append("\\n", 2);
-                    break;
-                case '\r':
-                    buffer.append("\\r", 2);
-                    break;
-                case '\t':
-                    buffer.append("\\t", 2);
-                    break;
-                case '\\':
-                    buffer.append("\\\\", 2);
-                    break;
-                case '"':
-                    buffer.append("\\\"", 2);
-                    break;
-                default:
-                    buffer.push_back(c);
-                }
-            }
-            buffer.push_back('"');
-            break;
-
-        case array_tag:
-            buffer.push_back('[');
-            for (size_t i = 0; i < size(); ++i) {
-                if (i > 0)
-                    buffer.push_back(',');
-                operator[](i).stringify(buffer);
-            }
-            buffer.push_back(']');
-            break;
-
-        case object_tag:
-            buffer.push_back('{');
-            for (size_t i = 0; i < size(); i += 2) {
-                if (i > 0)
-                    buffer.push_back(',');
-                operator[](i).stringify(buffer);
-                buffer.append(": ", 2);
-                operator[](i + 1).stringify(buffer);
-            }
-            buffer.push_back('}');
-            break;
-        }
-    }
 };
+
+inline void indent(vector<char> &s, size_t depth) {
+    static const char LF64SP[] = "\n                                                                ";
+    size_t n = (s.size() ? 1 : 0) + depth * 2;
+    s.append(LF64SP, n < sizeof(LF64SP) - 1 ? n : sizeof(LF64SP) - 1);
+}
+
+inline void stringify(vector<char> &s, view v, size_t depth = 0) {
+    char buf[32];
+
+    switch (v.tag()) {
+    case number_tag:
+        s.append(buf, snprintf(buf, sizeof(buf), "%.10g", v.to_number()));
+        break;
+
+    case null_tag:
+        s.append("null", 4);
+        break;
+
+    case bool_tag:
+        if (v.to_bool())
+            s.append("true", 4);
+        else
+            s.append("false", 5);
+        break;
+
+    case string_tag:
+        s.push_back('"');
+        for (const char *p = v.to_string(); *p;) {
+            char c = *p++;
+            switch (c) {
+            case '\b':
+                s.append("\\b", 2);
+                break;
+            case '\f':
+                s.append("\\f", 2);
+                break;
+            case '\n':
+                s.append("\\n", 2);
+                break;
+            case '\r':
+                s.append("\\r", 2);
+                break;
+            case '\t':
+                s.append("\\t", 2);
+                break;
+            case '\\':
+                s.append("\\\\", 2);
+                break;
+            case '"':
+                s.append("\\\"", 2);
+                break;
+            default:
+                s.push_back(c);
+            }
+        }
+        s.push_back('"');
+        break;
+
+    case array_tag:
+        s.push_back('[');
+        for (size_t i = 0; i < v.size(); ++i) {
+            if (i > 0)
+                s.push_back(',');
+            indent(s, depth + 1);
+            stringify(s, v[i], depth + 1);
+        }
+        indent(s, depth);
+        s.push_back(']');
+        break;
+
+    case object_tag:
+        s.push_back('{');
+        for (size_t i = 0; i < v.size(); i += 2) {
+            if (i > 0)
+                s.push_back(',');
+            indent(s, depth + 1);
+            stringify(s, v[i], depth + 1);
+            s.append(": ", 2);
+            stringify(s, v[i + 1], depth + 1);
+        }
+        indent(s, depth);
+        s.push_back('}');
+        break;
+    }
+}
 }
