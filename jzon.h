@@ -324,9 +324,13 @@ struct parser {
     }
 };
 
-struct view {
-    const value *_data;
+class view {
+    const vector<value> &_data;
     value _value;
+
+public:
+    view(const vector<value> &data) : _data(data), _value(data.back()) {}
+    view(const vector<value> &data, size_t index) : _data(data), _value(data[index]) {}
 
     value_tag tag() const {
         return _value.is_nan() ? _value.tag : number_tag;
@@ -354,7 +358,7 @@ struct view {
 
     view operator[](size_t index) const {
         assert(is_array() || is_object());
-        return {_data, _data[_value.payload + index + 1]};
+        return {_data, _value.payload + index + 1};
     }
 
     size_t size() const {

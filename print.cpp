@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
         fclose(fp);
 
         auto jzs = jzon::parser::parse(source.data());
-        jzon::view root = {jzs.begin(), jzs.back()};
+        auto root = jzon::view(jzs);
         jzon::vector<char> buffer;
         root.stringify(buffer);
         buffer.push_back('\0');
