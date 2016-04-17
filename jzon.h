@@ -3,6 +3,7 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 
 namespace jzon {
 enum value_tag {
@@ -25,6 +26,7 @@ union value {
 #endif
         value_tag tag : 16;
     };
+    char s[sizeof(double)];
 
     value() = default;
     constexpr value(double n) : number(n) {}
@@ -58,39 +60,48 @@ struct stack {
     ~stack() {
         free(_data);
     }
-    void grow(size_t n = 1) {
+
+    void grow(size_t n) {
         _capacity = _capacity * 2 + 8;
         if (_capacity < n)
             _capacity = n;
         _data = static_cast<value *>(realloc(_data, _capacity * sizeof(value)));
     }
-    void push(value x) {
+
+    void append(const value *x, size_t n) {
+        if (_capacity < _size + n)
+            grow(_size + n);
+        memcpy(_data + _size, x, n * sizeof(value));
+        _size += n;
+    }
+
+    void push_back(value x) {
         if (_size == _capacity)
             grow(_size + 1);
         _data[_size++] = x;
     }
-    value &top() {
-        return _data[_size - 1];
-    }
-    void push(const value *p, size_t n) {
-        if (_capacity < _size + n)
-            grow(_size + n);
-        while (n--)
-            _data[_size++] = *p++;
-    }
+
     const value *pop(size_t n) {
         _size -= n;
         return _data + _size;
     }
-    char &put(size_t index) {
-        index += _size * sizeof(value);
-        if (index >= _capacity * sizeof(value))
-            grow(_size + 1);
-        return ((char *)_data)[index];
+
+    value &back() {
+        assert(!empty());
+        return _data[_size - 1];
     }
-    void add(size_t length) {
-        _size += (length + sizeof(value) - 1) / sizeof(value);
+    const value &back() const {
+        assert(!empty());
+        return _data[_size - 1];
     }
+    value *begin() { return _data; }
+    const value *begin() const { return _data; }
+    value *end() { return _data + _size; }
+    const value *end() const { return _data + _size; }
+
+    bool empty() const { return _size == 0; }
+    size_t size() const { return _size; }
+    size_t capacity() const { return _capacity; }
 };
 
 struct parser {
@@ -140,12 +151,21 @@ struct parser {
     }
 
     static int parse_string(stack &v, const char *s, const char **endptr) {
-        for (size_t n = 0; *s; ++s) {
+        value temp;
+        size_t n = 0;
+#define PUT(c)                            \
+    do {                                  \
+        temp.s[n++ % sizeof(temp)] = (c); \
+        if ((n % sizeof(temp)) == 0)      \
+            v.push_back(temp);                 \
+    } while (0)
+
+        for (; *s; ++s) {
             unsigned int c = *s;
             if (c == '"') {
                 *endptr = ++s;
-                v.put(n++) = 0;
-                v.add(n);
+                temp.s[n++ % sizeof(temp)] = '\0';
+                v.push_back(temp);
                 return 0;
             } else if (c == '\\') {
                 c = *++s;
@@ -178,14 +198,14 @@ struct parser {
                         }
                     }
                     if (cp < 0x80) {
-                        v.put(n++) = cp;
+                        PUT(cp);
                     } else if (cp < 0x800) {
-                        v.put(n++) = 0xC0 | (cp >> 6);
-                        v.put(n++) = 0x80 | (cp & 0x3F);
+                        PUT(0xC0 | (cp >> 6));
+                        PUT(0x80 | (cp & 0x3F));
                     } else {
-                        v.put(n++) = 0xE0 | (cp >> 12);
-                        v.put(n++) = 0x80 | ((cp >> 6) & 0x3F);
-                        v.put(n++) = 0x80 | (cp & 0x3F);
+                        PUT(0xE0 | (cp >> 12));
+                        PUT(0x80 | ((cp >> 6) & 0x3F));
+                        PUT(0x80 | (cp & 0x3F));
                     }
                     continue;
                 } else {
@@ -197,7 +217,7 @@ struct parser {
                     return missing_terminating_quote;
                 break;
             }
-            v.put(n++) = c;
+            PUT(c);
         }
         *endptr = s;
         return invalid_string_char;
@@ -211,20 +231,20 @@ struct parser {
             if (*s == 0) {
                 break;
             } else if (*s == '[') {
-                temp.push({frame, array_tag});
+                temp.push_back({frame, array_tag});
                 frame = temp._size;
                 ++s;
             } else if (*s == '{') {
-                temp.push({frame, object_tag});
+                temp.push_back({frame, object_tag});
                 frame = temp._size;
                 ++s;
             } else if (*s == ']' || *s == '}') {
                 size_t offset = result._size;
                 size_t length = temp._size - frame;
-                result.push({length, number_tag});
-                result.push(temp.pop(length), length);
-                frame = temp.top().payload;
-                temp.top() = {offset, *s == ']' ? array_tag : object_tag};
+                result.push_back({length, number_tag});
+                result.append(temp.pop(length), length);
+                frame = temp.back().payload;
+                temp.back() = {offset, *s == ']' ? array_tag : object_tag};
                 ++s;
             } else if (*s == ',') {
                 ++s;
@@ -234,25 +254,25 @@ struct parser {
                 size_t offset = result._size;
                 if (parse_string(result, ++s, &s))
                     abort();
-                temp.push({offset, string_tag});
+                temp.push_back({offset, string_tag});
             } else if (*s >= '0' && *s <= '9') {
-                temp.push(parse_number(s, &s));
+                temp.push_back(parse_number(s, &s));
             } else if (s[0] == '-' && s[1] >= '0' && s[1] <= '9') {
-                temp.push(-parse_number(++s, &s));
+                temp.push_back(-parse_number(++s, &s));
             } else if (s[0] == 'f' && s[1] == 'a' && s[2] == 'l' && s[3] == 's' && s[4] == 'e') {
                 s += 5;
-                temp.push({false, bool_tag});
+                temp.push_back({false, bool_tag});
             } else if (s[0] == 't' && s[1] == 'r' && s[2] == 'u' && s[3] == 'e') {
                 s += 4;
-                temp.push({true, bool_tag});
+                temp.push_back({true, bool_tag});
             } else if (s[0] == 'n' && s[1] == 'u' && s[2] == 'l' && s[3] == 'l') {
                 s += 4;
-                temp.push({0, null_tag});
+                temp.push_back({0, null_tag});
             } else {
                 abort();
             }
         }
-        result.push(temp.top());
+        result.push_back(temp.back());
         return result;
     }
 };
@@ -282,7 +302,7 @@ struct view {
     }
     const char *to_string() const {
         assert(is_string());
-        return (const char *)(_data + _value.payload);
+        return _data[_value.payload].s;
     }
 
     view operator[](size_t index) const {
