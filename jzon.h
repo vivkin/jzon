@@ -7,36 +7,6 @@
 #include <string.h>
 
 namespace jzon {
-enum value_tag {
-    number_tag = 0xFFF0,
-    null_tag,
-    bool_tag,
-    string_tag,
-    array_tag,
-    object_tag,
-};
-
-union value {
-    double number;
-    struct {
-#if _MSC_VER || __SIZEOF_LONG__ == 4
-        unsigned long payload : 32;
-        unsigned long padding : 16;
-#else
-        unsigned long payload : 48;
-#endif
-        value_tag tag : 16;
-    };
-    char s[sizeof(double)];
-
-    value() = default;
-    constexpr value(double n) : number(n) {}
-    constexpr value(unsigned long payload, value_tag tag) : payload(payload), tag(tag) {}
-    constexpr bool is_nan() const { return tag > number_tag; }
-};
-
-static_assert(sizeof(value) == sizeof(double), "value size must be 8");
-
 template <typename T>
 class vector {
     T *_data = nullptr;
@@ -148,6 +118,79 @@ public:
     bool empty() const { return _size == 0; }
     size_t size() const { return _size; }
     size_t capacity() const { return _capacity; }
+};
+
+enum value_tag {
+    number_tag = 0xFFF0,
+    null_tag,
+    bool_tag,
+    string_tag,
+    array_tag,
+    object_tag,
+};
+
+union value {
+    double number;
+    struct {
+#if _MSC_VER || __SIZEOF_LONG__ == 4
+        unsigned long payload : 32;
+        unsigned long padding : 16;
+#else
+        unsigned long payload : 48;
+#endif
+        value_tag tag : 16;
+    };
+    char s[sizeof(double)];
+
+    value() = default;
+    constexpr value(double n) : number(n) {}
+    constexpr value(unsigned long payload, value_tag tag) : payload(payload), tag(tag) {}
+    constexpr bool is_nan() const { return tag > number_tag; }
+};
+
+static_assert(sizeof(value) == sizeof(double), "value size must be 8");
+
+class view {
+    const vector<value> &_data;
+    value _value;
+
+public:
+    view(const vector<value> &data, value v) : _data(data), _value(v) {}
+    view(const vector<value> &data) : view(data, data.back()) {}
+
+    value_tag tag() const {
+        return _value.is_nan() ? _value.tag : number_tag;
+    }
+
+    bool is_number() const { return !_value.is_nan(); }
+    bool is_null() const { return _value.tag == null_tag; }
+    bool is_bool() const { return _value.tag == bool_tag; }
+    bool is_string() const { return _value.tag == string_tag; }
+    bool is_array() const { return _value.tag == array_tag; }
+    bool is_object() const { return _value.tag == object_tag; }
+
+    double to_number() const {
+        assert(is_number());
+        return _value.number;
+    }
+    bool to_bool() const {
+        assert(is_bool());
+        return _value.payload ? true : false;
+    }
+    const char *to_string() const {
+        assert(is_string());
+        return _data[_value.payload].s;
+    }
+
+    size_t size() const {
+        assert(is_array() || is_object());
+        return _data[_value.payload].payload;
+    }
+
+    view operator[](size_t index) const {
+        assert(is_array() || is_object());
+        return {_data, _data[_value.payload + index + 1]};
+    }
 };
 
 struct parser {
@@ -270,28 +313,25 @@ struct parser {
     }
 
     static vector<value> parse(const char *s) {
-        vector<value> result, temp;
+        vector<value> backlog;
+        vector<value> result;
         size_t frame = 0;
         while (*s) {
             s = skip_ws(s);
             if (*s == 0) {
                 break;
-            } else if (*s == '[') {
-                temp.push_back({frame, array_tag});
-                frame = temp.size();
-                ++s;
-            } else if (*s == '{') {
-                temp.push_back({frame, object_tag});
-                frame = temp.size();
+            } else if (*s == '[' || *s == '{') {
+                backlog.push_back({frame, *s == '[' ? array_tag : object_tag});
+                frame = backlog.size();
                 ++s;
             } else if (*s == ']' || *s == '}') {
                 size_t offset = result.size();
-                size_t length = temp.size() - frame;
+                size_t length = backlog.size() - frame;
                 result.push_back({length, number_tag});
-                result.append(temp.end() - length, length);
-                temp.resize(temp.size() - length);
-                frame = temp.back().payload;
-                temp.back() = {offset, *s == ']' ? array_tag : object_tag};
+                result.append(backlog.end() - length, length);
+                backlog.resize(backlog.size() - length);
+                frame = backlog.back().payload;
+                backlog.back() = {offset, *s == ']' ? array_tag : object_tag};
                 ++s;
             } else if (*s == ',') {
                 ++s;
@@ -301,76 +341,34 @@ struct parser {
                 size_t offset = result.size();
                 if (parse_string(result, ++s, &s))
                     abort();
-                temp.push_back({offset, string_tag});
+                backlog.push_back({offset, string_tag});
             } else if (*s >= '0' && *s <= '9') {
-                temp.push_back(parse_number(s, &s));
+                backlog.push_back(parse_number(s, &s));
             } else if (s[0] == '-' && s[1] >= '0' && s[1] <= '9') {
-                temp.push_back(-parse_number(++s, &s));
+                backlog.push_back(-parse_number(++s, &s));
             } else if (s[0] == 'f' && s[1] == 'a' && s[2] == 'l' && s[3] == 's' && s[4] == 'e') {
                 s += 5;
-                temp.push_back({false, bool_tag});
+                backlog.push_back({false, bool_tag});
             } else if (s[0] == 't' && s[1] == 'r' && s[2] == 'u' && s[3] == 'e') {
                 s += 4;
-                temp.push_back({true, bool_tag});
+                backlog.push_back({true, bool_tag});
             } else if (s[0] == 'n' && s[1] == 'u' && s[2] == 'l' && s[3] == 'l') {
                 s += 4;
-                temp.push_back({0, null_tag});
+                backlog.push_back({0, null_tag});
             } else {
                 abort();
             }
         }
-        result.push_back(temp.back());
+        result.push_back(backlog.back());
         return result;
     }
 };
 
-class view {
-    const vector<value> &_data;
-    value _value;
-
-public:
-    view(const vector<value> &data, value v) : _data(data), _value(v) {}
-    view(const vector<value> &data) : view(data, data.back()) {}
-
-    value_tag tag() const {
-        return _value.is_nan() ? _value.tag : number_tag;
-    }
-
-    bool is_number() const { return !_value.is_nan(); }
-    bool is_null() const { return _value.tag == null_tag; }
-    bool is_bool() const { return _value.tag == bool_tag; }
-    bool is_string() const { return _value.tag == string_tag; }
-    bool is_array() const { return _value.tag == array_tag; }
-    bool is_object() const { return _value.tag == object_tag; }
-
-    double to_number() const {
-        assert(is_number());
-        return _value.number;
-    }
-    bool to_bool() const {
-        assert(is_bool());
-        return _value.payload ? true : false;
-    }
-    const char *to_string() const {
-        assert(is_string());
-        return _data[_value.payload].s;
-    }
-
-    size_t size() const {
-        assert(is_array() || is_object());
-        return _data[_value.payload].payload;
-    }
-
-    view operator[](size_t index) const {
-        assert(is_array() || is_object());
-        return {_data, _data[_value.payload + index + 1]};
-    }
-};
-
 inline void indent(vector<char> &s, size_t depth) {
-    static const char LF64SP[] = "\n                                                                ";
-    size_t n = (s.size() ? 1 : 0) + depth * 2;
-    s.append(LF64SP, n < sizeof(LF64SP) - 1 ? n : sizeof(LF64SP) - 1);
+    if (s.size())
+        s.push_back('\n');
+    while (depth--)
+        s.append("\x20\x20\x20\x20", 4);
 }
 
 inline void stringify(vector<char> &s, view v, size_t depth = 0) {
