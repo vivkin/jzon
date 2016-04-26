@@ -148,7 +148,7 @@ union value {
     constexpr bool is_nan() const { return tag > number_tag; }
 };
 
-static_assert(sizeof(value) == sizeof(double), "value size must be 8");
+static_assert(sizeof(value) == sizeof(double), "value size != 8");
 
 class view {
     const vector<value> &_data;
@@ -181,12 +181,10 @@ public:
         assert(is_string());
         return _data[_value.payload].s;
     }
-
     size_t size() const {
         assert(is_array() || is_object());
         return _data[_value.payload].payload;
     }
-
     view operator[](size_t index) const {
         assert(is_array() || is_object());
         return {_data, _data[_value.payload + index + 1]};
@@ -240,21 +238,26 @@ struct parser {
     }
 
     static int parse_string(vector<value> &v, const char *s, const char **endptr) {
-        value temp;
+        value buf;
         size_t n = 0;
-#define PUT(c)                            \
-    do {                                  \
-        temp.s[n++ % sizeof(temp)] = (c); \
-        if ((n % sizeof(temp)) == 0)      \
-            v.push_back(temp);            \
+
+#define PUT(c)                          \
+    do {                                \
+        buf.s[n++ % sizeof(buf)] = (c); \
+        if ((n % sizeof(buf)) == 0)     \
+            v.push_back(buf);           \
     } while (0)
 
         for (; *s; ++s) {
             unsigned int c = *s;
-            if (c == '"') {
+            if (c < ' ') {
+                break;
+            } else if (c == '"') {
                 *endptr = ++s;
-                temp.s[n++ % sizeof(temp)] = '\0';
-                v.push_back(temp);
+
+                buf.s[n++ % sizeof(buf)] = '\0';
+                v.push_back(buf);
+
                 return 0;
             } else if (c == '\\') {
                 c = *++s;
@@ -272,6 +275,7 @@ struct parser {
                     ;
                 else if (c == 'u') {
                     unsigned int cp = 0;
+
                     for (int i = 0; i < 4; ++i) {
                         c = *++s;
                         cp = cp * 16 + c;
@@ -286,6 +290,7 @@ struct parser {
                             return invalid_string_escape;
                         }
                     }
+
                     if (cp < 0x80) {
                         PUT(cp);
                     } else if (cp < 0x800) {
@@ -296,20 +301,20 @@ struct parser {
                         PUT(0x80 | ((cp >> 6) & 0x3F));
                         PUT(0x80 | (cp & 0x3F));
                     }
+
                     continue;
                 } else {
                     *endptr = s;
                     return invalid_string_escape;
                 }
-            } else if (c < ' ') {
-                if (c == '\r' || c == '\n')
-                    return missing_terminating_quote;
-                break;
             }
             PUT(c);
         }
+
+#undef PUT
+
         *endptr = s;
-        return invalid_string_char;
+        return (*s == '\r' || *s == '\n') ? missing_terminating_quote : invalid_string_char;
     }
 
     static vector<value> parse(const char *s) {
