@@ -1,6 +1,6 @@
 #include "jzon.h"
-#include <stdlib.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <vector>
 
 int main(int argc, char **argv) {
@@ -14,7 +14,7 @@ int main(int argc, char **argv) {
         size_t size = ftell(fp);
         fseek(fp, 0, SEEK_SET);
         std::vector<char> source;
-        source.resize(size);
+        source.resize(size + 1);
         fread(source.data(), 1, size, fp);
         fclose(fp);
 
