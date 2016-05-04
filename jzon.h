@@ -129,6 +129,8 @@ enum value_tag {
     object_tag,
 };
 
+enum { prefix_flag = 0x8 };
+
 union value {
     double number;
     struct {
@@ -394,13 +396,21 @@ struct parser {
                 frame = backlog.size();
                 ++s;
             } else if (*s == ']' || *s == '}') {
+                if (backlog.empty())
+                    return {/*stack_underflow*/};
+
+                value saved = backlog[frame - 1];
+                if (saved.tag == array_tag && *s != ']')
+                    return {/*mismatch_brace*/};
+
                 size_t offset = result.size();
-                size_t length = backlog.size() - frame;
-                result.push_back({length, number_tag});
-                result.append(backlog.end() - length, length);
-                backlog.resize(backlog.size() - length);
-                frame = backlog.back().payload;
-                backlog.back() = {offset, *s == ']' ? array_tag : object_tag};
+                size_t size = backlog.size() - frame;
+                result.push_back({size, (value_tag)(saved.tag | prefix_flag)});
+                result.append(backlog.end() - size, size);
+                backlog.resize(backlog.size() - size);
+
+                frame = saved.payload;
+                backlog.back() = {offset, saved.tag};
                 ++s;
             } else if (*s == ',') {
                 ++s;

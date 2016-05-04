@@ -24,8 +24,13 @@ int main(int argc, char **argv) {
         fread(source.data(), 1, size, fp);
         fclose(fp);
 
-        auto jzs = jzon::parser::parse(source.data());
-        auto root = jzon::view(jzs);
+        auto doc = jzon::parser::parse(source.data());
+        if (doc.empty()) {
+            fprintf(stderr, "parse error\n");
+            exit(EXIT_FAILURE);
+        }
+
+        auto root = jzon::view(doc);
         jzon::vector<char> buffer;
         if (pretty)
             jzon::prettify(buffer, root);
