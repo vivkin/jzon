@@ -398,7 +398,7 @@ struct parser {
                 frame = backlog.size();
                 ++s;
             } else if (*s == ']' || *s == '}') {
-                if (backlog.empty())
+                if (frame == 0)
                     return {/*stack_underflow*/};
 
                 value saved = backlog[frame - 1];
@@ -406,15 +406,14 @@ struct parser {
                     return {/*mismatch_brace*/};
 
                 size_t size = backlog.size() - frame;
-                frame = saved.payload;
-
                 result.push_back({size, (value_tag)(saved.tag | prefix_flag)});
                 size_t offset = result.size();
-
                 result.append(backlog.end() - size, size);
-                backlog.resize(backlog.size() - size);
 
+                backlog.resize(frame);
                 backlog.back() = {offset, saved.tag};
+                frame = saved.payload;
+
                 ++s;
             } else if (*s == ',') {
                 ++s;
