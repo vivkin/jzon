@@ -210,7 +210,70 @@ struct parser {
         return s;
     }
 
+    static double exp10(size_t n) {
+        static constexpr double E[] = {
+            1e+0, 1e+1, 1e+2, 1e+3, 1e+4, 1e+5, 1e+6, 1e+7,
+            1e+8, 1e+9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15,
+            1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22, 1e23,
+        };
+
+        if (n < sizeof(E) / sizeof(E[0]))
+            return E[n];
+
+        double x = 1;
+        for (double y = 10; n; n >>= 1, y *= y)
+            if (n & 1)
+                x *= y;
+
+        return x;
+    }
+
     static double parse_number(const char *s, const char **endptr) {
+#if 1
+        unsigned long significant = 0;
+        int power = 0;
+
+        while (*s >= '0' && *s <= '9') {
+            significant = (significant * 10) + (*s++ - '0');
+        }
+
+        if (*s == '.') {
+            ++s;
+
+            while (*s >= '0' && *s <= '9') {
+                significant = (significant * 10) + (*s++ - '0');
+                --power;
+            }
+        }
+
+        if (*s == 'e' || *s == 'E') {
+            ++s;
+
+            bool negative = false;
+            if (*s == '+') {
+                ++s;
+            } else if (*s == '-') {
+                ++s;
+                negative = true;
+            }
+
+            unsigned int exponent = 0;
+            while (*s >= '0' && *s <= '9')
+                exponent = (exponent * 10) + (*s++ - '0');
+
+            power = power + (negative ? -exponent : exponent);
+        }
+
+        *endptr = s;
+
+        if (power == 0) {
+            return significant;
+        } else if (power > 0) {
+            return significant * exp10(power);
+        } else {
+            return significant / exp10(-power);
+        }
+#else
         double n = 0;
         while (*s >= '0' && *s <= '9')
             n = (n * 10) + (*s++ - '0');
@@ -235,6 +298,7 @@ struct parser {
 
         *endptr = s;
         return n;
+#endif
     }
 
     static int parse_string(vector<value> &v, const char *s, const char **endptr) {
@@ -345,7 +409,7 @@ struct parser {
             } else if (*s == '"') {
                 size_t offset = result.size();
                 if (parse_string(result, ++s, &s))
-                    abort();
+                    return {};
                 backlog.push_back({offset, string_tag});
             } else if (*s >= '0' && *s <= '9') {
                 backlog.push_back(parse_number(s, &s));
@@ -361,7 +425,7 @@ struct parser {
                 s += 4;
                 backlog.push_back({0, null_tag});
             } else {
-                abort();
+                return {};
             }
         }
         result.push_back(backlog.back());
@@ -433,10 +497,10 @@ inline void stringify(vector<char> &s, view v, size_t depth = 0) {
         for (size_t i = 0; i < v.size(); ++i) {
             if (i > 0)
                 s.push_back(',');
-            indent(s, depth + 1);
+            //indent(s, depth + 1);
             stringify(s, v[i], depth + 1);
         }
-        indent(s, depth);
+        //indent(s, depth);
         s.push_back(']');
         break;
 
@@ -445,12 +509,13 @@ inline void stringify(vector<char> &s, view v, size_t depth = 0) {
         for (size_t i = 0; i < v.size(); i += 2) {
             if (i > 0)
                 s.push_back(',');
-            indent(s, depth + 1);
+            //indent(s, depth + 1);
             stringify(s, v[i], depth + 1);
-            s.append(": ", 2);
+            //s.append(": ", 2);
+            s.push_back(':');
             stringify(s, v[i + 1], depth + 1);
         }
-        indent(s, depth);
+        //indent(s, depth);
         s.push_back('}');
         break;
     }
