@@ -26,8 +26,8 @@ int main(int argc, char **argv) {
 
         auto doc = jzon::parser::parse(source.data());
         if (doc.empty()) {
-            fprintf(stderr, "parse error\n");
-            exit(EXIT_FAILURE);
+            fprintf(stderr, "%s: error: parse failed\n", argv[i]);
+            continue;
         }
 
         auto root = jzon::view(doc);

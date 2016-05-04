@@ -447,7 +447,7 @@ struct parser {
     }
 };
 
-inline void stringify(vector<char> &s, view v, size_t depth = 0) {
+inline void stringify(vector<char> &s, view v) {
     char buf[32];
 
     switch (v.tag()) {
@@ -504,7 +504,7 @@ inline void stringify(vector<char> &s, view v, size_t depth = 0) {
             char comma = '[';
             for (size_t i = 0; i < v.size(); ++i, comma = ',') {
                 s.push_back(comma);
-                stringify(s, v[i], depth + 1);
+                stringify(s, v[i]);
             }
         } else {
             s.push_back('[');
@@ -517,9 +517,9 @@ inline void stringify(vector<char> &s, view v, size_t depth = 0) {
             char comma = '{';
             for (size_t i = 0; i < v.size(); i += 2, comma = ',') {
                 s.push_back(comma);
-                stringify(s, v[i], depth + 1);
+                stringify(s, v[i]);
                 s.push_back(':');
-                stringify(s, v[i + 1], depth + 1);
+                stringify(s, v[i + 1]);
             }
         } else {
             s.push_back('{');
@@ -541,7 +541,7 @@ inline void prettify(vector<char> &s, view v, size_t depth = 0) {
     case array_tag:
         if (v.size()) {
             char comma = '[';
-            for (size_t i = 0; i < v.size(); ++i, comma = ',') {
+            for (size_t i = 0, i_end = v.size(); i < i_end; ++i, comma = ',') {
                 s.push_back(comma);
                 indent(s, depth + 1);
                 prettify(s, v[i], depth + 1);
@@ -556,10 +556,10 @@ inline void prettify(vector<char> &s, view v, size_t depth = 0) {
     case object_tag:
         if (v.size()) {
             char comma = '{';
-            for (size_t i = 0; i < v.size(); i += 2, comma = ',') {
+            for (size_t i = 0, i_end = v.size(); i < i_end; i += 2, comma = ',') {
                 s.push_back(comma);
                 indent(s, depth + 1);
-                stringify(s, v[i], depth + 1);
+                stringify(s, v[i]);
                 s.append(": ", 2);
                 prettify(s, v[i + 1], depth + 1);
             }
