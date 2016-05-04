@@ -4,7 +4,13 @@
 #include <vector>
 
 int main(int argc, char **argv) {
+    bool pretty = false;
     for (int i = 1; i < argc; ++i) {
+        if (!strcmp(argv[i], "--pretty")) {
+            pretty = true;
+            continue;
+        }
+
         FILE *fp = fopen(argv[i], "r");
         if (!fp) {
             perror(argv[i]);
@@ -21,7 +27,10 @@ int main(int argc, char **argv) {
         auto jzs = jzon::parser::parse(source.data());
         auto root = jzon::view(jzs);
         jzon::vector<char> buffer;
-        jzon::stringify(buffer, root);
+        if (pretty)
+            jzon::prettify(buffer, root);
+        else
+            jzon::stringify(buffer, root);
         buffer.push_back('\0');
         buffer.pop_back();
         printf("%s\n", buffer.begin());

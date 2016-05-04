@@ -433,13 +433,6 @@ struct parser {
     }
 };
 
-inline void indent(vector<char> &s, size_t depth) {
-    if (s.size())
-        s.push_back('\n');
-    while (depth--)
-        s.append("\x20\x20\x20\x20", 4);
-}
-
 inline void stringify(vector<char> &s, view v, size_t depth = 0) {
     char buf[32];
 
@@ -493,31 +486,78 @@ inline void stringify(vector<char> &s, view v, size_t depth = 0) {
         break;
 
     case array_tag:
-        s.push_back('[');
-        for (size_t i = 0; i < v.size(); ++i) {
-            if (i > 0)
-                s.push_back(',');
-            //indent(s, depth + 1);
-            stringify(s, v[i], depth + 1);
+        if (v.size()) {
+            char comma = '[';
+            for (size_t i = 0; i < v.size(); ++i, comma = ',') {
+                s.push_back(comma);
+                stringify(s, v[i], depth + 1);
+            }
+        } else {
+            s.push_back('[');
         }
-        //indent(s, depth);
         s.push_back(']');
         break;
 
     case object_tag:
-        s.push_back('{');
-        for (size_t i = 0; i < v.size(); i += 2) {
-            if (i > 0)
-                s.push_back(',');
-            //indent(s, depth + 1);
-            stringify(s, v[i], depth + 1);
-            //s.append(": ", 2);
-            s.push_back(':');
-            stringify(s, v[i + 1], depth + 1);
+        if (v.size()) {
+            char comma = '{';
+            for (size_t i = 0; i < v.size(); i += 2, comma = ',') {
+                s.push_back(comma);
+                stringify(s, v[i], depth + 1);
+                s.push_back(':');
+                stringify(s, v[i + 1], depth + 1);
+            }
+        } else {
+            s.push_back('{');
         }
-        //indent(s, depth);
         s.push_back('}');
         break;
+    }
+}
+
+inline void indent(vector<char> &s, size_t depth) {
+    if (s.size())
+        s.push_back('\n');
+    while (depth--)
+        s.append("\x20\x20\x20\x20", 4);
+}
+
+inline void prettify(vector<char> &s, view v, size_t depth = 0) {
+    switch (v.tag()) {
+    case array_tag:
+        if (v.size()) {
+            char comma = '[';
+            for (size_t i = 0; i < v.size(); ++i, comma = ',') {
+                s.push_back(comma);
+                indent(s, depth + 1);
+                prettify(s, v[i], depth + 1);
+            }
+            indent(s, depth);
+        } else {
+            s.push_back('[');
+        }
+        s.push_back(']');
+        break;
+
+    case object_tag:
+        if (v.size()) {
+            char comma = '{';
+            for (size_t i = 0; i < v.size(); i += 2, comma = ',') {
+                s.push_back(comma);
+                indent(s, depth + 1);
+                stringify(s, v[i], depth + 1);
+                s.append(": ", 2);
+                prettify(s, v[i + 1], depth + 1);
+            }
+            indent(s, depth);
+        } else {
+            s.push_back('{');
+        }
+        s.push_back('}');
+        break;
+
+    default:
+        stringify(s, v);
     }
 }
 }
