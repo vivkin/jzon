@@ -129,7 +129,9 @@ enum value_tag {
     object_tag,
 };
 
-enum { prefix_flag = 0x8 };
+enum value_flag {
+    prefix_flag = 0x8,
+};
 
 union value {
     double number;
@@ -185,11 +187,11 @@ public:
     }
     size_t size() const {
         assert(is_array() || is_object());
-        return _data[_value.payload].payload;
+        return _data[_value.payload - 1].payload;
     }
     view operator[](size_t index) const {
         assert(is_array() || is_object());
-        return {_data, _data[_value.payload + index + 1]};
+        return {_data, _data[_value.payload + index]};
     }
 };
 
@@ -403,13 +405,15 @@ struct parser {
                 if (saved.tag == array_tag && *s != ']')
                     return {/*mismatch_brace*/};
 
-                size_t offset = result.size();
                 size_t size = backlog.size() - frame;
+                frame = saved.payload;
+
                 result.push_back({size, (value_tag)(saved.tag | prefix_flag)});
+                size_t offset = result.size();
+
                 result.append(backlog.end() - size, size);
                 backlog.resize(backlog.size() - size);
 
-                frame = saved.payload;
                 backlog.back() = {offset, saved.tag};
                 ++s;
             } else if (*s == ',') {
