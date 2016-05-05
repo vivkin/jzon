@@ -75,6 +75,11 @@ int main(int argc, char **argv) {
         fclose(fp);
 
         auto doc = jzon::parser::parse(source.data());
+        if (doc.empty()) {
+            fprintf(stderr, "%s: error: parse failed\n", argv[i]);
+            continue;
+        }
+
         auto root = jzon::view(doc);
         Stat stat = {};
         GenStat(stat, root);
