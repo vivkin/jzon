@@ -35,10 +35,6 @@ bool parse_double(const char *json, double *d) {
 }
 
 int main(int __unused argc, char __unused **argv) {
-    for (size_t i = 0; i < 310; ++i)
-        printf("exp10(%zd) = %e\n", i, jzon::parser::exp10(i));
-    printf("exp10(%zu) = %e\n", ~0ul, jzon::parser::exp10(~0ul));
-
     printf("%2s %6s %4s %15s %13s\n", "==", "is_nan", "tag", "payload", "number");
 
     double numbers[] = {0.0, 1.0, 1.0 / 3.0, 5.45, 7.62, 1e40, DBL_MIN, DBL_EPSILON, DBL_MAX, INFINITY, NAN};
