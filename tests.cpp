@@ -51,15 +51,16 @@ int main(int __unused argc, char __unused **argv) {
     pvalue({~1ul, jzon::array_tag});
     pvalue({0xFFFFFFFFul, jzon::object_tag});
 
-#define TEST_DOUBLE(json, rexpect)                                                                                                     \
-    {                                                                                                                                  \
-        double actual = 0.0;                                                                                                           \
-        double expect = rexpect;                                                                                                       \
+#define TEST_DOUBLE(json, expect)                                                                                                      \
+    do {                                                                                                                               \
+        double expect_copy = expect;                                                                                                   \
+        double actual;                                                                                                                 \
         if (parse_double(json, &actual))                                                                                               \
             if (expect != actual)                                                                                                      \
                 fprintf(stderr, "%s:%d: error: parsing %s failed\n    expect: %24.17g (0x%016lx)\n    actual: %24.17g (0x%016lx)\n\n", \
-                        __FILE__, __LINE__, json, expect, *(unsigned long *)&expect, actual, *(unsigned long *)&actual);               \
-    }
+                        __FILE__, __LINE__, json, expect, *(unsigned long *)&expect_copy, actual, *(unsigned long *)&actual);          \
+    } while (0)
+
     TEST_DOUBLE("[0.0]", 0.0);
     TEST_DOUBLE("[-0.0]", -0.0);
     TEST_DOUBLE("[1.0]", 1.0);
