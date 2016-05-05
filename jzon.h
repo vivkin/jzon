@@ -241,11 +241,13 @@ struct parser {
 
             if (*s == '-') {
                 ++s;
+
                 while (*s >= '0' && *s <= '9')
                     exponent = (exponent * 10) - (*s++ - '0');
             } else {
                 if (*s == '+')
                     ++s;
+
                 while (*s >= '0' && *s <= '9')
                     exponent = (exponent * 10) + (*s++ - '0');
             }
@@ -254,17 +256,14 @@ struct parser {
         *endptr = s;
 
         exponent += fraction;
-        if (exponent > 308)
-            exponent = 308;
-        while (exponent < -308) {
-            n /= exp10[308];
-            exponent += 308;
-        }
-
-        if (exponent >= 0)
-            return n * exp10[exponent];
-        else
+        if (exponent < 0) {
+            while (exponent < -308) {
+                n /= exp10[308];
+                exponent += 308;
+            }
             return n / exp10[-exponent];
+        }
+        return n * exp10[exponent < 308 ? exponent : 308];
     }
 
     static int parse_string(vector<value> &v, const char *s, const char **endptr) {
