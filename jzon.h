@@ -50,12 +50,6 @@ public:
         return *this;
     }
 
-    void resize(size_t n) {
-        if (_capacity < n)
-            set_capacity(n);
-        _size = n;
-    }
-
     void set_capacity(size_t n) {
         if (n < _size) {
             _size = n;
@@ -64,19 +58,27 @@ public:
         _capacity = n;
     }
 
+    void grow(size_t n) {
+        if (_capacity < n) {
+            size_t new_capacity = _capacity * 2 + 8;
+            set_capacity(new_capacity < n ? n : new_capacity);
+        }
+    }
+
+    void resize(size_t n) {
+        grow(n);
+        _size = n;
+    }
+
     void append(const T *x, size_t n) {
         size_t new_size = _size + n;
-        if (_capacity < new_size) {
-            size_t new_capacity = _capacity * 2 + 8;
-            set_capacity(new_capacity < new_size ? new_size : new_capacity);
-        }
+        grow(new_size);
         memcpy(_data + _size, x, sizeof(T) * n);
         _size = new_size;
     }
 
     void push_back(const T &x) {
-        if (_size == _capacity)
-            set_capacity(_capacity * 2 + 8);
+        grow(_size + 1);
         _data[_size++] = x;
     }
 
@@ -196,13 +198,15 @@ public:
 };
 
 struct parser {
-    enum {
+    enum error_code {
         invalid_number = 1,
+        invalid_exponent,
         invalid_string_char,
         invalid_string_escape,
         missing_terminating_quote,
         missing_comma,
         missing_colon,
+        mismatch_brace,
         document_empty,
         stack_underflow,
         unexpected_character,
@@ -214,20 +218,19 @@ struct parser {
         return s;
     }
 
-    static bool parse_number(double *n, const char *s, const char **endptr) {
-        static constexpr double exp10[] = {1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22, 1e23, 1e24, 1e25, 1e26, 1e27, 1e28, 1e29, 1e30, 1e31, 1e32, 1e33, 1e34, 1e35, 1e36, 1e37, 1e38, 1e39, 1e40, 1e41, 1e42, 1e43, 1e44, 1e45, 1e46, 1e47, 1e48, 1e49, 1e50, 1e51, 1e52, 1e53, 1e54, 1e55, 1e56, 1e57, 1e58, 1e59, 1e60, 1e61, 1e62, 1e63, 1e64, 1e65, 1e66, 1e67, 1e68, 1e69, 1e70, 1e71, 1e72, 1e73, 1e74, 1e75, 1e76, 1e77, 1e78, 1e79, 1e80, 1e81, 1e82, 1e83, 1e84, 1e85, 1e86, 1e87, 1e88, 1e89, 1e90, 1e91, 1e92, 1e93, 1e94, 1e95, 1e96, 1e97, 1e98, 1e99, 1e100, 1e101, 1e102, 1e103, 1e104, 1e105, 1e106, 1e107, 1e108, 1e109, 1e110, 1e111, 1e112, 1e113, 1e114, 1e115, 1e116, 1e117, 1e118, 1e119, 1e120, 1e121, 1e122, 1e123, 1e124, 1e125, 1e126, 1e127, 1e128, 1e129, 1e130, 1e131, 1e132, 1e133, 1e134, 1e135, 1e136, 1e137, 1e138, 1e139, 1e140, 1e141, 1e142, 1e143, 1e144, 1e145, 1e146, 1e147, 1e148, 1e149, 1e150, 1e151, 1e152, 1e153, 1e154, 1e155, 1e156, 1e157, 1e158, 1e159, 1e160, 1e161, 1e162, 1e163, 1e164, 1e165, 1e166, 1e167, 1e168, 1e169, 1e170, 1e171, 1e172, 1e173, 1e174, 1e175, 1e176, 1e177, 1e178, 1e179, 1e180, 1e181, 1e182, 1e183, 1e184, 1e185, 1e186, 1e187, 1e188, 1e189, 1e190, 1e191, 1e192, 1e193, 1e194, 1e195, 1e196, 1e197, 1e198, 1e199, 1e200, 1e201, 1e202, 1e203, 1e204, 1e205, 1e206, 1e207, 1e208, 1e209, 1e210, 1e211, 1e212, 1e213, 1e214, 1e215, 1e216, 1e217, 1e218, 1e219, 1e220, 1e221, 1e222, 1e223, 1e224, 1e225, 1e226, 1e227, 1e228, 1e229, 1e230, 1e231, 1e232, 1e233, 1e234, 1e235, 1e236, 1e237, 1e238, 1e239, 1e240, 1e241, 1e242, 1e243, 1e244, 1e245, 1e246, 1e247, 1e248, 1e249, 1e250, 1e251, 1e252, 1e253, 1e254, 1e255, 1e256, 1e257, 1e258, 1e259, 1e260, 1e261, 1e262, 1e263, 1e264, 1e265, 1e266, 1e267, 1e268, 1e269, 1e270, 1e271, 1e272, 1e273, 1e274, 1e275, 1e276, 1e277, 1e278, 1e279, 1e280, 1e281, 1e282, 1e283, 1e284, 1e285, 1e286, 1e287, 1e288, 1e289, 1e290, 1e291, 1e292, 1e293, 1e294, 1e295, 1e296, 1e297, 1e298, 1e299, 1e300, 1e301, 1e302, 1e303, 1e304, 1e305, 1e306, 1e307, 1e308};
-
+    static int parse_number(value *dst, const char **src) {
+        const char *s = *src;
         bool negative = *s == '-';
-        if (negative)
-            ++s;
-
-        if (s[0] == '0' && s[1] >= '0' && s[1] <= '9')
-            return false;
-
+        double significant = 0;
         int num_digits = 0;
         int fraction = 0;
         int exponent = 0;
-        double significant = 0;
+
+        if (negative)
+            ++s;
+
+        if (*s == '0' && (s[1] >= '0' && s[1] <= '9'))
+            return invalid_number;
 
         for (; *s >= '0' && *s <= '9'; ++s, ++num_digits)
             significant = (significant * 10) + (*s - '0');
@@ -250,7 +253,7 @@ struct parser {
                 ++s;
 
                 if (*s < '0' || *s > '9')
-                    return false;
+                    return invalid_exponent;
 
                 while (*s >= '0' && *s <= '9')
                     exponent = (exponent * 10) - (*s++ - '0');
@@ -259,13 +262,14 @@ struct parser {
                     ++s;
 
                 if (*s < '0' || *s > '9')
-                    return false;
+                    return invalid_exponent;
 
                 while (*s >= '0' && *s <= '9')
                     exponent = (exponent * 10) + (*s++ - '0');
             }
         }
 
+        static constexpr double exp10[] = {1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20, 1e21, 1e22, 1e23, 1e24, 1e25, 1e26, 1e27, 1e28, 1e29, 1e30, 1e31, 1e32, 1e33, 1e34, 1e35, 1e36, 1e37, 1e38, 1e39, 1e40, 1e41, 1e42, 1e43, 1e44, 1e45, 1e46, 1e47, 1e48, 1e49, 1e50, 1e51, 1e52, 1e53, 1e54, 1e55, 1e56, 1e57, 1e58, 1e59, 1e60, 1e61, 1e62, 1e63, 1e64, 1e65, 1e66, 1e67, 1e68, 1e69, 1e70, 1e71, 1e72, 1e73, 1e74, 1e75, 1e76, 1e77, 1e78, 1e79, 1e80, 1e81, 1e82, 1e83, 1e84, 1e85, 1e86, 1e87, 1e88, 1e89, 1e90, 1e91, 1e92, 1e93, 1e94, 1e95, 1e96, 1e97, 1e98, 1e99, 1e100, 1e101, 1e102, 1e103, 1e104, 1e105, 1e106, 1e107, 1e108, 1e109, 1e110, 1e111, 1e112, 1e113, 1e114, 1e115, 1e116, 1e117, 1e118, 1e119, 1e120, 1e121, 1e122, 1e123, 1e124, 1e125, 1e126, 1e127, 1e128, 1e129, 1e130, 1e131, 1e132, 1e133, 1e134, 1e135, 1e136, 1e137, 1e138, 1e139, 1e140, 1e141, 1e142, 1e143, 1e144, 1e145, 1e146, 1e147, 1e148, 1e149, 1e150, 1e151, 1e152, 1e153, 1e154, 1e155, 1e156, 1e157, 1e158, 1e159, 1e160, 1e161, 1e162, 1e163, 1e164, 1e165, 1e166, 1e167, 1e168, 1e169, 1e170, 1e171, 1e172, 1e173, 1e174, 1e175, 1e176, 1e177, 1e178, 1e179, 1e180, 1e181, 1e182, 1e183, 1e184, 1e185, 1e186, 1e187, 1e188, 1e189, 1e190, 1e191, 1e192, 1e193, 1e194, 1e195, 1e196, 1e197, 1e198, 1e199, 1e200, 1e201, 1e202, 1e203, 1e204, 1e205, 1e206, 1e207, 1e208, 1e209, 1e210, 1e211, 1e212, 1e213, 1e214, 1e215, 1e216, 1e217, 1e218, 1e219, 1e220, 1e221, 1e222, 1e223, 1e224, 1e225, 1e226, 1e227, 1e228, 1e229, 1e230, 1e231, 1e232, 1e233, 1e234, 1e235, 1e236, 1e237, 1e238, 1e239, 1e240, 1e241, 1e242, 1e243, 1e244, 1e245, 1e246, 1e247, 1e248, 1e249, 1e250, 1e251, 1e252, 1e253, 1e254, 1e255, 1e256, 1e257, 1e258, 1e259, 1e260, 1e261, 1e262, 1e263, 1e264, 1e265, 1e266, 1e267, 1e268, 1e269, 1e270, 1e271, 1e272, 1e273, 1e274, 1e275, 1e276, 1e277, 1e278, 1e279, 1e280, 1e281, 1e282, 1e283, 1e284, 1e285, 1e286, 1e287, 1e288, 1e289, 1e290, 1e291, 1e292, 1e293, 1e294, 1e295, 1e296, 1e297, 1e298, 1e299, 1e300, 1e301, 1e302, 1e303, 1e304, 1e305, 1e306, 1e307, 1e308};
         exponent += fraction;
         if (exponent < 0) {
             while (exponent < -308) {
@@ -277,94 +281,107 @@ struct parser {
             significant *= exp10[exponent < 308 ? exponent : 308];
         }
 
-        *n = negative ? -significant : significant;
-        *endptr = s;
-        return true;
+        *dst = negative ? -significant : significant;
+        *src = s;
+        return 0;
     }
 
-    static int parse_string(vector<value> &v, const char *s, const char **endptr) {
-        value buf;
-        size_t n = 0;
+    static int parse_string(vector<value> &v, value *dst, const char **src) {
+        const char *s = *src;
+        while (*s >= ' ' && *s != '"' && *s != '\\')
+            ++s;
 
-#define PUT(c)                          \
-    do {                                \
-        buf.s[n++ % sizeof(buf)] = (c); \
-        if ((n % sizeof(buf)) == 0)     \
-            v.push_back(buf);           \
-    } while (0)
+        size_t offset = v.size();
+        size_t n = s - *src;
+        if (n) {
+            v.resize(offset + (n + 7) / 8);
+            memcpy(v[offset].s, *src, n);
+        }
 
-        for (; *s; ++s) {
-            unsigned int c = *s;
-            if (c < ' ') {
-                break;
-            } else if (c == '"') {
-                *endptr = ++s;
+#define PUT(c) v[offset].s[n++] = (c)
 
-                buf.s[n++ % sizeof(buf)] = '\0';
-                v.push_back(buf);
+        for (;;) {
+            if (n % sizeof(value) == 0)
+                v.push_back(value());
 
+            unsigned int cp, c = *s++;
+
+            if (c < ' ')
+                return (c == '\r' || c == '\n') ? missing_terminating_quote : invalid_string_char;
+
+            if (c == '"') {
+                PUT('\0');
+                *dst = {offset, string_tag};
+                *src = s;
                 return 0;
-            } else if (c == '\\') {
-                c = *++s;
-                if (c == 'b')
-                    c = '\b';
-                else if (c == 't')
-                    c = '\t';
-                else if (c == 'n')
-                    c = '\n';
-                else if (c == 'f')
-                    c = '\f';
-                else if (c == 'r')
-                    c = '\r';
-                else if (c == '/' || c == '"' || c == '\\')
-                    ;
-                else if (c == 'u') {
-                    unsigned int cp = 0;
+            }
 
+            if (c == '\\') {
+                c = *s++;
+                switch (c) {
+                case 'b':
+                    PUT('\b');
+                    continue;
+                case 't':
+                    PUT('\t');
+                    continue;
+                case 'n':
+                    PUT('\n');
+                    continue;
+                case 'f':
+                    PUT('\f');
+                    continue;
+                case 'r':
+                    PUT('\r');
+                    continue;
+                case '/':
+                case '"':
+                case '\\':
+                    PUT(c);
+                    continue;
+                case 'u':
+                    cp = 0;
                     for (int i = 0; i < 4; ++i) {
-                        c = *++s;
-                        cp = cp * 16 + c;
+                        c = *s++;
+                        cp = (cp * 16) + c;
                         if (c >= '0' && c <= '9')
                             cp -= '0';
                         else if (c >= 'A' && c <= 'F')
                             cp -= 'A' - 10;
                         else if (c >= 'a' && c <= 'f')
                             cp -= 'a' - 10;
-                        else {
-                            *endptr = s;
+                        else
                             return invalid_string_escape;
-                        }
                     }
 
                     if (cp < 0x80) {
                         PUT(cp);
                     } else if (cp < 0x800) {
+                        if (n % sizeof(value) > 6)
+                            v.push_back(value());
                         PUT(0xC0 | (cp >> 6));
                         PUT(0x80 | (cp & 0x3F));
                     } else {
+                        if (n % sizeof(value) > 5)
+                            v.push_back(value());
                         PUT(0xE0 | (cp >> 12));
                         PUT(0x80 | ((cp >> 6) & 0x3F));
                         PUT(0x80 | (cp & 0x3F));
                     }
-
                     continue;
-                } else {
-                    *endptr = s;
+                default:
                     return invalid_string_escape;
                 }
             }
+
             PUT(c);
         }
-
 #undef PUT
-
-        *endptr = s;
-        return (*s == '\r' || *s == '\n') ? missing_terminating_quote : invalid_string_char;
     }
 
-    static vector<value> parse(const char *s) {
+    static int parse(vector<value> &v, const char *s) {
         vector<value> backlog;
-        vector<value> result;
+        vector<value> &result = v;
         size_t frame = 0;
         while (*s) {
             s = skip_ws(s);
@@ -376,11 +393,11 @@ struct parser {
                 ++s;
             } else if (*s == ']' || *s == '}') {
                 if (frame == 0)
-                    return {/*stack_underflow*/};
+                    return stack_underflow;
 
                 value saved = backlog[frame - 1];
                 if (saved.tag == array_tag && *s != ']')
-                    return {/*mismatch_brace*/};
+                    return mismatch_brace;
 
                 size_t size = backlog.size() - frame;
                 result.push_back({size, (value_tag)(saved.tag | prefix_flag)});
@@ -397,15 +414,18 @@ struct parser {
             } else if (*s == ':') {
                 ++s;
             } else if (*s == '"') {
-                size_t offset = result.size();
-                if (parse_string(result, ++s, &s))
-                    return {};
-                backlog.push_back({offset, string_tag});
+                ++s;
+                value d;
+                int res = parse_string(result, &d, &s);
+                if (res)
+                    return res;
+                backlog.push_back(d);
             } else if ((*s >= '0' && *s <= '9') || *s == '-') {
-                double n;
-                if (!parse_number(&n, s, &s))
-                    return {/*invalid_number*/};
-                backlog.push_back(n);
+                value d;
+                int res = parse_number(&d, &s);
+                if (res)
+                    return res;
+                backlog.push_back(d);
             } else if (s[0] == 'f' && s[1] == 'a' && s[2] == 'l' && s[3] == 's' && s[4] == 'e') {
                 s += 5;
                 backlog.push_back({false, bool_tag});
@@ -416,11 +436,17 @@ struct parser {
                 s += 4;
                 backlog.push_back({0, null_tag});
             } else {
-                return {};
+                return unexpected_character;
             }
         }
         result.push_back(backlog.back());
-        return result;
+        return 0;
+    }
+
+    static vector<value> parse(const char *s) {
+        vector<value> data;
+        parse(data, s);
+        return data;
     }
 };
 
