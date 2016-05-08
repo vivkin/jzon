@@ -203,6 +203,7 @@ struct parser {
         invalid_exponent,
         invalid_string_char,
         invalid_string_escape,
+        invalid_surrogate_pair,
         missing_terminating_quote,
         missing_comma,
         missing_colon,
@@ -340,18 +341,26 @@ struct parser {
                     PUT(c);
                     continue;
                 case 'u':
+                    static constexpr unsigned char hex2dec[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15};
+
                     cp = 0;
-                    for (int i = 0; i < 4; ++i) {
-                        c = *s++;
-                        cp = (cp * 16) + c;
-                        if (c >= '0' && c <= '9')
-                            cp -= '0';
-                        else if (c >= 'A' && c <= 'F')
-                            cp -= 'A' - 10;
-                        else if (c >= 'a' && c <= 'f')
-                            cp -= 'a' - 10;
-                        else
-                            return invalid_string_escape;
+                    for (int i = 0; i < 4; ++i, ++s)
+                        cp = cp * 16 + hex2dec[((unsigned char)*s & 0x7F) - '0'];
+
+                    if (cp >= 0xD800 && cp <= 0xDBFF) {
+                        if (s[0] != '\\' && s[1] != 'u')
+                            return invalid_surrogate_pair;
+                        s += 2;
+
+                        unsigned int high = cp;
+                        cp = 0;
+                        for (int i = 0; i < 4; ++i, ++s)
+                            cp = cp * 16 + hex2dec[((unsigned char)*s & 0x7F) - '0'];
+
+                        if (cp < 0xDC00 && cp > 0xDFFF)
+                            return invalid_surrogate_pair;
+
+                        cp = 0x10000 + ((high & 0x3FF) << 10) + (cp & 0x3FF);
                     }
 
                     if (cp < 0x80) {
@@ -361,10 +370,17 @@ struct parser {
                             v.push_back(value());
                         PUT(0xC0 | (cp >> 6));
                         PUT(0x80 | (cp & 0x3F));
-                    } else {
+                    } else if (cp < 0xFFFF) {
                         if (n % sizeof(value) > 5)
                             v.push_back(value());
                         PUT(0xE0 | (cp >> 12));
+                        PUT(0x80 | ((cp >> 6) & 0x3F));
+                        PUT(0x80 | (cp & 0x3F));
+                    } else {
+                        if (n % sizeof(value) > 4)
+                            v.push_back(value());
+                        PUT(0xF0 | (cp >> 18));
+                        PUT(0x80 | ((cp >> 12) & 0x3F));
                         PUT(0x80 | ((cp >> 6) & 0x3F));
                         PUT(0x80 | (cp & 0x3F));
                     }
