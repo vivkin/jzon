@@ -51,20 +51,20 @@ int main(int __unused argc, char __unused **argv) {
     pvalue({~1ul, jzon::array_tag});
     pvalue({0xFFFFFFFFul, jzon::object_tag});
 
-#define TEST_DOUBLE(json, expect)                                                                                                      \
-    do {                                                                                                                               \
-        union {                                                                                                                        \
-            double expect_copy = expect;                                                                                               \
-            unsigned long expect_copy_ul;                                                                                              \
-        };                                                                                                                             \
-        union {                                                                                                                        \
-            double actual;                                                                                                             \
-            unsigned long actual_ul;                                                                                                   \
-        };                                                                                                                             \
-        if (parse_double(json, &actual))                                                                                               \
-            if (expect != actual)                                                                                                      \
-                fprintf(stderr, "%s:%d: error: parsing %s failed\n    expect: %24.17g (0x%016lx)\n    actual: %24.17g (0x%016lx)\n\n", \
-                        __FILE__, __LINE__, json, expect, expect_copy_ul, actual, actual_ul);                                          \
+#define TEST_DOUBLE(json, expect)                                                                                                  \
+    do {                                                                                                                           \
+        union {                                                                                                                    \
+            double expect_copy = expect;                                                                                           \
+            unsigned long expect_copy_ul;                                                                                          \
+        };                                                                                                                         \
+        union {                                                                                                                    \
+            double actual;                                                                                                         \
+            unsigned long actual_ul;                                                                                               \
+        };                                                                                                                         \
+        parse_double(json, &actual);                                                                                               \
+        if (expect != actual)                                                                                                      \
+            fprintf(stderr, "%s:%d: error: parsing %s failed\n    expect: %24.17g (0x%016lx)\n    actual: %24.17g (0x%016lx)\n\n", \
+                    __FILE__, __LINE__, json, expect, expect_copy_ul, actual, actual_ul);                                          \
     } while (0)
 
     TEST_DOUBLE("[0.0]", 0.0);
