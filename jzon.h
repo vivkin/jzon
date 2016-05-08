@@ -341,11 +341,16 @@ struct parser {
                     PUT(c);
                     continue;
                 case 'u':
-                    static constexpr unsigned char hex2dec[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 0, 0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 10, 11, 12, 13, 14, 15};
+                    static constexpr char hex2dec[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15};
 
                     cp = 0;
-                    for (int i = 0; i < 4; ++i, ++s)
-                        cp = cp * 16 + hex2dec[((unsigned char)*s & 0x7F) - '0'];
+                    for (int i = 0; i < 4; ++i) {
+                        c = *s++ - '0';
+                        if (c < sizeof(hex2dec) && hex2dec[c] >= 0)
+                            cp = cp * 16 + hex2dec[c];
+                        else
+                            return invalid_surrogate_pair;
+                    }
 
                     if (cp >= 0xD800 && cp <= 0xDBFF) {
                         if (s[0] != '\\' && s[1] != 'u')
@@ -353,14 +358,19 @@ struct parser {
                         s += 2;
 
                         unsigned int high = cp;
-                        cp = 0;
-                        for (int i = 0; i < 4; ++i, ++s)
-                            cp = cp * 16 + hex2dec[((unsigned char)*s & 0x7F) - '0'];
+                        unsigned int low = 0;
+                        for (int i = 0; i < 4; ++i) {
+                            c = *s++ - '0';
+                            if (c < sizeof(hex2dec) && hex2dec[c] >= 0)
+                                low = low * 16 + hex2dec[c];
+                            else
+                                return invalid_surrogate_pair;
+                        }
 
-                        if (cp < 0xDC00 && cp > 0xDFFF)
+                        if (low < 0xDC00 && low > 0xDFFF)
                             return invalid_surrogate_pair;
 
-                        cp = 0x10000 + ((high & 0x3FF) << 10) + (cp & 0x3FF);
+                        cp = 0x10000 + ((high & 0x3FF) << 10) + (low & 0x3FF);
                     }
 
                     if (cp < 0x80) {
