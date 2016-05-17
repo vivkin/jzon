@@ -58,27 +58,23 @@ public:
         _capacity = n;
     }
 
-    void grow(size_t n) {
-        if (_capacity < n) {
-            size_t new_capacity = _capacity * 2 + 8;
-            set_capacity(new_capacity < n ? n : new_capacity);
-        }
+    void reserve(size_t n) {
+        if (_capacity < n)
+            set_capacity(_capacity * 2 < n ? n : _capacity * 2);
     }
 
     void resize(size_t n) {
-        grow(n);
+        reserve(n);
         _size = n;
     }
 
     void append(const T *x, size_t n) {
-        size_t new_size = _size + n;
-        grow(new_size);
-        memcpy(_data + _size, x, sizeof(T) * n);
-        _size = new_size;
+        resize(_size + n);
+        memcpy(_data + _size - n, x, sizeof(T) * n);
     }
 
     void push_back(const T &x) {
-        grow(_size + 1);
+        reserve(_size + 1);
         _data[_size++] = x;
     }
 
