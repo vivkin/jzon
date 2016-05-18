@@ -1,7 +1,7 @@
 #include "jzon.h"
+#include "gason2dump.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <vector>
 
 int main(int argc, char **argv) {
     bool pretty = false;
@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
         fseek(fp, 0, SEEK_END);
         size_t size = ftell(fp);
         fseek(fp, 0, SEEK_SET);
-        std::vector<char> source;
+        jzon::vector<char> source;
         source.resize(size + 1);
         fread(source.data(), 1, size, fp);
         fclose(fp);
@@ -33,9 +33,9 @@ int main(int argc, char **argv) {
         auto root = jzon::view(doc);
         jzon::vector<char> buffer;
         if (pretty)
-            jzon::prettify(buffer, root);
+            gason2::dump::prettify(buffer, root);
         else
-            jzon::stringify(buffer, root);
+            gason2::dump::stringify(buffer, root);
         buffer.push_back('\0');
         buffer.pop_back();
         printf("%s\n", buffer.begin());

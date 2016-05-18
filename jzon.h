@@ -2,7 +2,6 @@
 
 #include <assert.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -20,9 +19,8 @@ public:
         free(_data);
     }
 
-    vector(const vector &x) : _size(x._size), _capacity(x._size) {
-        _data = (T *)malloc(sizeof(T) * _size);
-        memcpy(_data, x._data, sizeof(T) * _size);
+    vector(const vector &x) {
+        *this = x;
     }
 
     vector(vector &&x) : _data(x._data), _size(x._size), _capacity(x._capacity) {
@@ -31,9 +29,8 @@ public:
     }
 
     vector &operator=(const vector &x) {
-        set_capacity(x._size);
+        resize(x._size);
         memcpy(_data, x._data, sizeof(T) * x._size);
-        _size = x._size;
         return *this;
     }
 
@@ -113,9 +110,11 @@ public:
     T *end() { return _data + _size; }
     const T *end() const { return _data + _size; }
 
-    bool empty() const { return _size == 0; }
+    T *data() { return _data; }
+    const T *data() const { return _data; }
     size_t size() const { return _size; }
     size_t capacity() const { return _capacity; }
+    bool empty() const { return _size == 0; }
 };
 
 enum value_tag {
@@ -480,132 +479,4 @@ struct parser {
         return data;
     }
 };
-
-inline void stringify(vector<char> &s, view v) {
-    char buf[32];
-
-    switch (v.tag()) {
-    case number_tag:
-        s.append(buf, snprintf(buf, sizeof(buf), "%.10g", v.to_number()));
-        break;
-
-    case null_tag:
-        s.append("null", 4);
-        break;
-
-    case bool_tag:
-        if (v.to_bool())
-            s.append("true", 4);
-        else
-            s.append("false", 5);
-        break;
-
-    case string_tag:
-        s.push_back('"');
-        for (const char *p = v.to_string(); *p;) {
-            char c = *p++;
-            switch (c) {
-            case '\b':
-                s.append("\\b", 2);
-                break;
-            case '\f':
-                s.append("\\f", 2);
-                break;
-            case '\n':
-                s.append("\\n", 2);
-                break;
-            case '\r':
-                s.append("\\r", 2);
-                break;
-            case '\t':
-                s.append("\\t", 2);
-                break;
-            case '\\':
-                s.append("\\\\", 2);
-                break;
-            case '"':
-                s.append("\\\"", 2);
-                break;
-            default:
-                s.push_back(c);
-            }
-        }
-        s.push_back('"');
-        break;
-
-    case array_tag:
-        if (v.size()) {
-            char comma = '[';
-            for (size_t i = 0; i < v.size(); ++i, comma = ',') {
-                s.push_back(comma);
-                stringify(s, v[i]);
-            }
-        } else {
-            s.push_back('[');
-        }
-        s.push_back(']');
-        break;
-
-    case object_tag:
-        if (v.size()) {
-            char comma = '{';
-            for (size_t i = 0; i < v.size(); i += 2, comma = ',') {
-                s.push_back(comma);
-                stringify(s, v[i]);
-                s.push_back(':');
-                stringify(s, v[i + 1]);
-            }
-        } else {
-            s.push_back('{');
-        }
-        s.push_back('}');
-        break;
-    }
-}
-
-inline void indent(vector<char> &s, size_t depth) {
-    if (s.size())
-        s.push_back('\n');
-    while (depth--)
-        s.append("\x20\x20\x20\x20", 4);
-}
-
-inline void prettify(vector<char> &s, view v, size_t depth = 0) {
-    switch (v.tag()) {
-    case array_tag:
-        if (v.size()) {
-            char comma = '[';
-            for (size_t i = 0, i_end = v.size(); i < i_end; ++i, comma = ',') {
-                s.push_back(comma);
-                indent(s, depth + 1);
-                prettify(s, v[i], depth + 1);
-            }
-            indent(s, depth);
-        } else {
-            s.push_back('[');
-        }
-        s.push_back(']');
-        break;
-
-    case object_tag:
-        if (v.size()) {
-            char comma = '{';
-            for (size_t i = 0, i_end = v.size(); i < i_end; i += 2, comma = ',') {
-                s.push_back(comma);
-                indent(s, depth + 1);
-                stringify(s, v[i]);
-                s.append(": ", 2);
-                prettify(s, v[i + 1], depth + 1);
-            }
-            indent(s, depth);
-        } else {
-            s.push_back('{');
-        }
-        s.push_back('}');
-        break;
-
-    default:
-        stringify(s, v);
-    }
-}
 }
