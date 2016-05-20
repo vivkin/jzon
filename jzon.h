@@ -411,7 +411,6 @@ struct parser {
 
     static int parse(vector<value> &v, const char *s) {
         vector<value> backlog;
-        vector<value> &result = v;
         size_t frame = 0;
         while (*s) {
             s = skip_ws(s);
@@ -430,9 +429,9 @@ struct parser {
                     return mismatch_brace;
 
                 size_t size = backlog.size() - frame;
-                result.push_back({size, (value_tag)(saved.tag | prefix_flag)});
-                size_t offset = result.size();
-                result.append(backlog.end() - size, size);
+                v.push_back({size, (value_tag)(saved.tag | prefix_flag)});
+                size_t offset = v.size();
+                v.append(backlog.end() - size, size);
 
                 backlog.resize(frame);
                 backlog.back() = {offset, saved.tag};
@@ -446,7 +445,7 @@ struct parser {
             } else if (*s == '"') {
                 ++s;
                 value d;
-                int res = parse_string(result, &d, &s);
+                int res = parse_string(v, &d, &s);
                 if (res)
                     return res;
                 backlog.push_back(d);
@@ -469,7 +468,7 @@ struct parser {
                 return unexpected_character;
             }
         }
-        result.push_back(backlog.back());
+        v.push_back(backlog.back());
         return 0;
     }
 
