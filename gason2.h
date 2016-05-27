@@ -505,58 +505,6 @@ struct parser {
 
         return tok.tag > error_tag ? tok : error_missing_comma_or_bracket;
     }
-
-    static constexpr size_t error_buffer_size = 80 * 3;
-
-    static void print_error(char errbuf[error_buffer_size], const char *s, const char *endptr, unsigned int errnum) {
-        size_t lineno = 1;
-        const char *left = s;
-        const char *right = s;
-        while (*right) {
-            if (*right++ == '\n') {
-                if (endptr < right)
-                    break;
-                left = right;
-                ++lineno;
-            }
-        }
-        size_t column = endptr - left;
-        if (column > 80)
-            left = endptr - 40;
-        if (right - endptr > 40)
-            right = endptr + 40;
-
-        static const char *err2str[] = {
-            "expecting string",
-            "expecting value",
-            "invalid literal name",
-            "invalid number",
-            "invalid string char",
-            "invalid string escape",
-            "invalid surrogate pair",
-            "missing colon",
-            "missing comma or bracket",
-            "second root",
-            "unexpected character",
-        };
-
-        snprintf(errbuf, error_buffer_size, "%zd:%zd: %s\n%.*s\n%*s", lineno, column, err2str[errnum - error_expecting_string], int(right - left), left, int(endptr - left), "^");
-    }
-
-    static vector<value> parse(const char *s, char errbuf[error_buffer_size] = nullptr) {
-        parser p;
-        stream in{s};
-        value root = p.parse_value(in);
-        if (root.tag < error_tag && in.skipws())
-            root = error_second_root;
-        if (root.tag > error_tag) {
-            if (errbuf)
-                print_error(errbuf, s, in.c_str(), root.tag);
-            return {};
-        }
-        p._stack.push_back(root);
-        return static_cast<vector<value> &&>(p._stack);
-    }
 };
 
 class document : public view {
