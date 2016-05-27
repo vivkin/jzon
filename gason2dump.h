@@ -135,28 +135,8 @@ struct dump {
         }
     }
 
-    static int error_string(char *str, size_t n, const char *json, size_t offset, size_t errnum) {
-        size_t lineno = 1;
-        const char *left = json;
-        const char *right = json;
-        const char *endptr = json + offset;
-        while (*right) {
-            if (*right++ == '\n') {
-                if (endptr < right)
-                    break;
-                left = right;
-                ++lineno;
-            }
-        }
-
-        size_t column = endptr - left;
-        if (column > 80)
-            left = endptr - 40;
-        if (right - left > 80)
-            right = endptr + 80 - (endptr - left);
-
+    static const char *error_string(value_tag tag) {
         static const char *err2str[] = {
-            "unknown",
             "expecting string",
             "expecting value",
             "invalid literal name",
@@ -169,13 +149,32 @@ struct dump {
             "second root",
             "unexpected character",
         };
-        return snprintf(str, n, "%d:%d: %s\n%.*s\n%*s", (int)lineno, (int)column, err2str[errnum], int(right - left), left, int(endptr - left), "^");
+        if (tag > error_tag && tag - error_expecting_string < sizeof(err2str) / sizeof(err2str[0]))
+            return err2str[tag - error_expecting_string];
+        return "not an error";
     }
 
     static int print_error(const char *filename, const char *json, const document &doc) {
-        char buffer[160];
-        gason2::dump::error_string(buffer, sizeof(buffer), json, doc.error_offset(), doc.error_num());
-        return fprintf(stderr, "%s:%s\n", filename, buffer);
+        int lineno = 1;
+        const char *left = json;
+        const char *right = json;
+        const char *endptr = json + doc.error_offset();
+        while (*right) {
+            if (*right++ == '\n') {
+                if (endptr < right)
+                    break;
+                left = right;
+                ++lineno;
+            }
+        }
+
+        int column = endptr - left;
+        if (column > 80)
+            left = endptr - 40;
+        if (right - left > 80)
+            right = endptr + 80 - (endptr - left);
+
+        return fprintf(stderr, "%s:%d:%d: error: %s\n%.*s\n%*s\n", filename, lineno, column, error_string(doc.tag()), int(right - left), left, int(endptr - left), "^");
     }
 };
 }

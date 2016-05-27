@@ -521,7 +521,6 @@ struct parser {
 
 class document : public view {
     vector<value> _stack;
-    size_t _offset = 0;
 
 public:
     bool parse(const char *json) {
@@ -533,10 +532,10 @@ public:
         if (_value.tag < error_tag && s.skipws())
             _value = error_second_root;
 
-        _offset = s.c_str() - json;
-
-        if (_value.tag > error_tag)
+        if (_value.tag > error_tag) {
+            _value.payload = s.c_str() - json;
             return false;
+        }
 
         _stack = static_cast<vector<value> &&>(p._stack);
         _data = _stack.data();
@@ -544,7 +543,6 @@ public:
         return true;
     }
 
-    size_t error_offset() const { return _offset; }
-    size_t error_num() const { return _value.tag > error_tag ? _value.tag - error_tag : 0; }
+    size_t error_offset() const { return _value.tag > error_tag ? _value.payload : 0; }
 };
 }
