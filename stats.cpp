@@ -1,4 +1,5 @@
 #include "gason2.h"
+#include "gason2dump.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <vector>
@@ -77,17 +78,15 @@ int main(int argc, char **argv) {
         fread(source.data(), 1, size, fp);
         fclose(fp);
 
-        char errbuf[gason2::parser::error_buffer_size];
-        auto doc = gason2::parser::parse(source.data(), errbuf);
-        if (doc.empty()) {
-            fprintf(stderr, "%s:%s\n", argv[i], errbuf);
-            continue;
+        gason2::document doc;
+        if (!doc.parse(source.data())) {
+            char buffer[160];
+            gason2::dump::error_string(buffer, sizeof(buffer), source.data(), doc.error_offset(), doc.error_num());
+            fprintf(stderr, "%s:%s\n", argv[i], buffer);
         }
 
-        auto root = gason2::view(doc);
         Stat stat = {};
-        GenStat(stat, root);
-
+        GenStat(stat, doc);
         printf("%s: %zd %zd %zd %zd %zd %zd %zd %zd %zd %zd\n",
                argv[i],
                stat.objectCount,

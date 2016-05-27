@@ -163,12 +163,12 @@ union value {
 };
 
 class view {
-    const vector<value> &_data;
+protected:
+    const value *_data;
     value _value;
 
 public:
-    view(const vector<value> &data, value v) : _data(data), _value(v) {}
-    view(const vector<value> &data) : view(data, data.back()) {}
+    view(const value *data = nullptr, value v = null_tag) : _data(data), _value(v) {}
 
     value_tag tag() const {
         return _value.is_nan() ? value_tag(_value.tag) : number_tag;
@@ -214,6 +214,7 @@ struct parser {
         }
         char getch() { return *_s++; }
         char peek() const { return *_s; }
+        const char *c_str() const { return _s; }
     };
 
     static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
@@ -550,11 +551,40 @@ struct parser {
             root = error_second_root;
         if (root.tag > error_tag) {
             if (errbuf)
-                print_error(errbuf, s, in._s, root.tag);
+                print_error(errbuf, s, in.c_str(), root.tag);
             return {};
         }
         p._stack.push_back(root);
         return static_cast<vector<value> &&>(p._stack);
     }
+};
+
+class document : public view {
+    vector<value> _stack;
+    size_t _offset = 0;
+
+public:
+    bool parse(const char *json) {
+        parser p;
+        parser::stream s{json};
+
+        _value = p.parse_value(s);
+
+        if (_value.tag < error_tag && s.skipws())
+            _value = error_second_root;
+
+        _offset = s.c_str() - json;
+
+        if (_value.tag > error_tag)
+            return false;
+
+        _stack = static_cast<vector<value> &&>(p._stack);
+        _data = _stack.data();
+
+        return true;
+    }
+
+    size_t error_offset() { return _offset; }
+    size_t error_num() { return _value.tag > error_tag ? _value.tag - error_tag : 0; }
 };
 }

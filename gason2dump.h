@@ -134,5 +134,43 @@ struct dump {
             stringify(s, v);
         }
     }
+
+    static int error_string(char *str, size_t n, const char *json, size_t offset, size_t errnum) {
+        size_t lineno = 1;
+        const char *left = json;
+        const char *right = json;
+        const char *endptr = json + offset;
+        while (*right) {
+            if (*right++ == '\n') {
+                if (endptr < right)
+                    break;
+                left = right;
+                ++lineno;
+            }
+        }
+
+        size_t column = endptr - left;
+        if (column > 80)
+            left = endptr - 40;
+        if (right - left > 80)
+            right = endptr + 80 - (endptr - left);
+
+        static const char *err2str[] = {
+            "unknown",
+            "expecting string",
+            "expecting value",
+            "invalid literal name",
+            "invalid number",
+            "invalid string char",
+            "invalid string escape",
+            "invalid surrogate pair",
+            "missing colon",
+            "missing comma or bracket",
+            "second root",
+            "unexpected character",
+        };
+        return snprintf(str, n, "%zd:%zd: %s\n%.*s\n%*s", lineno, column, err2str[errnum],
+                        int(right - left), left, int(endptr - left), "^");
+    }
 };
 }

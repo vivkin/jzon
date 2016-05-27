@@ -25,7 +25,7 @@ void pvalue(gason2::value v) {
 bool parse_double(const char *json, double *d) {
     auto doc = gason2::parser::parse(json);
     if (!doc.empty()) {
-        auto root = gason2::view(doc);
+        auto root = gason2::view(doc.data(), doc.back());
         if (root.is_array() && root.size() == 1 && root[0].is_number()) {
             *d = root[0].to_number();
             return true;

@@ -25,22 +25,21 @@ int main(int argc, char **argv) {
         fread(source.data(), 1, size, fp);
         fclose(fp);
 
-        char errbuf[gason2::parser::error_buffer_size];
-        auto doc = gason2::parser::parse(source.data(), errbuf);
-        if (doc.empty()) {
-            fprintf(stderr, "%s:%s\n", argv[i], errbuf);
-            continue;
+        gason2::document doc;
+        if (doc.parse(source.data())) {
+            gason2::vector<char> buffer;
+            if (pretty)
+                gason2::dump::prettify(buffer, doc);
+            else
+                gason2::dump::stringify(buffer, doc);
+            buffer.push_back('\0');
+            buffer.pop_back();
+            printf("%s\n", buffer.begin());
+        } else {
+            char buffer[160];
+            gason2::dump::error_string(buffer, sizeof(buffer), source.data(), doc.error_offset(), doc.error_num());
+            fprintf(stderr, "%s:%s\n", argv[i], buffer);
         }
-
-        auto root = gason2::view(doc);
-        gason2::vector<char> buffer;
-        if (pretty)
-            gason2::dump::prettify(buffer, root);
-        else
-            gason2::dump::stringify(buffer, root);
-        buffer.push_back('\0');
-        buffer.pop_back();
-        printf("%s\n", buffer.begin());
     }
     return 0;
 }
