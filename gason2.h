@@ -532,7 +532,7 @@ public:
         return true;
     }
 
-    size_t error_offset() { return _offset; }
-    size_t error_num() { return _value.tag > error_tag ? _value.tag - error_tag : 0; }
+    size_t error_offset() const { return _offset; }
+    size_t error_num() const { return _value.tag > error_tag ? _value.tag - error_tag : 0; }
 };
 }

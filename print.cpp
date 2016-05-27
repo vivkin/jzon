@@ -36,9 +36,7 @@ int main(int argc, char **argv) {
             buffer.pop_back();
             printf("%s\n", buffer.begin());
         } else {
-            char buffer[160];
-            gason2::dump::error_string(buffer, sizeof(buffer), source.data(), doc.error_offset(), doc.error_num());
-            fprintf(stderr, "%s:%s\n", argv[i], buffer);
+            gason2::dump::print_error(argv[i], source.data(), doc);
         }
     }
     return 0;

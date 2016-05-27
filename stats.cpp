@@ -80,9 +80,7 @@ int main(int argc, char **argv) {
 
         gason2::document doc;
         if (!doc.parse(source.data())) {
-            char buffer[160];
-            gason2::dump::error_string(buffer, sizeof(buffer), source.data(), doc.error_offset(), doc.error_num());
-            fprintf(stderr, "%s:%s\n", argv[i], buffer);
+            gason2::dump::print_error(argv[i], source.data(), doc);
         }
 
         Stat stat = {};
