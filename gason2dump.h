@@ -169,7 +169,7 @@ struct dump {
             "second root",
             "unexpected character",
         };
-        return snprintf(str, n, "%zd:%zd: %s\n%.*s\n%*s", lineno, column, err2str[errnum], int(right - left), left, int(endptr - left), "^");
+        return snprintf(str, n, "%d:%d: %s\n%.*s\n%*s", (int)lineno, (int)column, err2str[errnum], int(right - left), left, int(endptr - left), "^");
     }
 
     static int print_error(const char *filename, const char *json, const document &doc) {
