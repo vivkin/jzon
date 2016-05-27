@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 namespace jzon {
 template <typename T>
@@ -118,38 +119,48 @@ public:
 };
 
 enum value_tag {
-    number_tag = 0xFFF0,
+    number_tag = 0xFFF00000,
     null_tag,
     bool_tag,
     string_tag,
     array_tag,
     object_tag,
-};
 
-enum value_flag {
-    prefix_flag = 0x8,
+    prefix_tag,
+
+    token_end_array,
+    token_end_object,
+    token_name_separator,
+    token_value_separator,
+
+    error_tag,
+    error_expecting_string,
+    error_expecting_value,
+    error_invalid_literal_name,
+    error_invalid_number,
+    error_invalid_string_char,
+    error_invalid_string_escape,
+    error_invalid_surrogate_pair,
+    error_missing_colon,
+    error_missing_comma_or_bracket,
+    error_second_root,
+    error_unexpected_character,
 };
 
 union value {
+    char s[8];
     double number;
     struct {
-#if _MSC_VER || __SIZEOF_LONG__ == 4
-        unsigned long payload : 32;
-        unsigned long padding : 16;
-#else
-        unsigned long payload : 48;
-#endif
-        value_tag tag : 16;
+        unsigned int payload;
+        unsigned int tag;
     };
-    char s[sizeof(double)];
 
     value() = default;
     constexpr value(double n) : number(n) {}
-    constexpr value(unsigned long payload, value_tag tag) : payload(payload), tag(tag) {}
+    constexpr value(value_tag tag) : payload(0), tag(tag) {}
+    constexpr value(size_t payload, value_tag tag) : payload(payload), tag(tag) {}
     constexpr bool is_nan() const { return tag > number_tag; }
 };
-
-static_assert(sizeof(value) == sizeof(double), "value size != 8");
 
 class view {
     const vector<value> &_data;
@@ -160,7 +171,7 @@ public:
     view(const vector<value> &data) : view(data, data.back()) {}
 
     value_tag tag() const {
-        return _value.is_nan() ? _value.tag : number_tag;
+        return _value.is_nan() ? value_tag(_value.tag) : number_tag;
     }
 
     bool is_number() const { return !_value.is_nan(); }
@@ -193,84 +204,67 @@ public:
 };
 
 struct parser {
-    enum error_code {
-        invalid_number = 1,
-        invalid_exponent,
-        invalid_string_char,
-        invalid_string_escape,
-        invalid_surrogate_pair,
-        missing_terminating_quote,
-        missing_comma,
-        missing_colon,
-        mismatch_brace,
-        document_empty,
-        stack_underflow,
-        unexpected_character,
+    struct stream {
+        const char *_s;
+
+        char skipws() {
+            while (*_s == '\x20' || *_s == '\x9' || *_s == '\xD' || *_s == '\xA')
+                ++_s;
+            return *_s;
+        }
+        char getch() { return *_s++; }
+        char peek() const { return *_s; }
     };
 
-    static inline const char *skip_ws(const char *s) {
-        while (*s == '\x20' || *s == '\x9' || *s == '\xD' || *s == '\xA')
-            ++s;
-        return s;
-    }
+    static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
 
-    static int parse_number(value *dst, const char **src) {
-        const char *s = *src;
-        bool negative = *s == '-';
-        double significant = 0;
-        int num_digits = 0;
+    static value parse_number(stream &s) {
+        unsigned long long integer = 0;
+        double significand = 0;
         int fraction = 0;
         int exponent = 0;
 
-        if (negative)
-            ++s;
+        integer = s.getch() - '0';
+        if (integer)
+            while (is_digit(s.peek()) && integer < 0x1999999999999999ull)
+                integer = (integer * 10) + (s.getch() - '0');
 
-        if (*s == '0') {
-            ++s;
-
-            if (*s >= '0' && *s <= '9')
-                return invalid_number;
-        } else {
-            while (*s >= '0' && *s <= '9') {
-                significant = (significant * 10) + (*s++ - '0');
-                ++num_digits;
-            }
+        if (integer >= 0x1999999999999999ull) {
+            significand = integer;
+            while (is_digit(s.peek()))
+                significand = (significand * 10) + (s.getch() - '0');
         }
 
-        if (*s == '.') {
-            ++s;
+        if (s.peek() == '.') {
+            s.getch();
 
-            while (*s >= '0' && *s <= '9' && num_digits <= 16) {
-                significant = (significant * 10) + (*s++ - '0');
-                if (significant != 0)
-                    ++num_digits;
+            while (is_digit(s.peek()) && integer < 0x1fffffffffffffull) {
+                integer = (integer * 10) + (s.getch() - '0');
                 --fraction;
             }
 
-            while (*s >= '0' && *s <= '9')
-                ++s;
+            while (is_digit(s.peek()))
+                s.getch();
         }
 
-        if (*s == 'e' || *s == 'E') {
-            ++s;
+        if (integer < 0x1999999999999999ull)
+            significand = integer;
 
-            if (*s == '-') {
-                ++s;
-
-                if (*s < '0' || *s > '9')
-                    return invalid_exponent;
-
-                while (*s >= '0' && *s <= '9')
-                    exponent = (exponent * 10) - (*s++ - '0');
+        if ((s.peek() | 0x20) == 'e') {
+            s.getch();
+            if (s.peek() == '-') {
+                s.getch();
+                if (!is_digit(s.peek()))
+                    return error_invalid_number;
+                while (is_digit(s.peek()))
+                    exponent = (exponent * 10) - (s.getch() - '0');
             } else {
-                if (*s == '+')
-                    ++s;
-
-                if (*s < '0' || *s > '9')
-                    return invalid_exponent;
-
-                while (*s >= '0' && *s <= '9')
-                    exponent = (exponent * 10) + (*s++ - '0');
+                if (s.peek() == '+')
+                    s.getch();
+                if (!is_digit(s.peek()))
+                    return error_invalid_number;
+                while (is_digit(s.peek()))
+                    exponent = (exponent * 10) + (s.getch() - '0');
             }
         }
 
@@ -278,204 +272,289 @@ struct parser {
         exponent += fraction;
         if (exponent < 0) {
             if (exponent < -308) {
-                significant /= exp10[308];
+                significand /= exp10[308];
                 exponent += 308;
             }
-            significant = exponent < -308 ? 0.0 : significant / exp10[-exponent];
+            significand = exponent < -308 ? 0.0 : significand / exp10[-exponent];
         } else {
-            significant *= exp10[exponent < 308 ? exponent : 308];
+            significand *= exp10[exponent < 308 ? exponent : 308];
         }
 
-        *dst = negative ? -significant : significant;
-        *src = s;
-        return 0;
+        return significand;
     }
 
-    static int parse_string(vector<value> &v, value *dst, const char **src) {
-        const char *s = *src;
-        while (*s >= ' ' && *s != '"' && *s != '\\')
-            ++s;
-
-        size_t offset = v.size();
-        size_t n = s - *src;
-        if (n) {
-            v.resize(offset + (n + 7) / 8);
-            memcpy(v[offset].s, *src, n);
-        }
-
-#define PUT(c) v[offset].s[n++] = (c)
-
-        for (;;) {
-            if (n % sizeof(value) == 0)
-                v.push_back(value());
-
-            unsigned int cp, c = *s++;
-
-            if (c < ' ')
-                return (c == '\r' || c == '\n') ? missing_terminating_quote : invalid_string_char;
-
-            if (c == '"') {
-                PUT('\0');
-                *dst = {offset, string_tag};
-                *src = s;
-                return 0;
+    static int unescape(stream &s) {
+        switch (s.getch()) {
+        case '\x22':
+            return '"';
+        case '\x2F':
+            return '/';
+        case '\x5C':
+            return '\\';
+        case '\x62':
+            return '\b';
+        case '\x66':
+            return '\f';
+        case '\x6E':
+            return '\n';
+        case '\x72':
+            return '\r';
+        case '\x74':
+            return '\t';
+        case '\x75': {
+            static constexpr char hex2dec[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15};
+            unsigned int cp = 0;
+            for (int i = 0; i < 4; ++i) {
+                unsigned int c = s.getch() - '0';
+                if (c < sizeof(hex2dec) && hex2dec[c] >= 0)
+                    cp = cp * 16 + hex2dec[c];
+                else
+                    return -1;
             }
+            return cp;
+        }
+        default:
+            return -1;
+        }
+    }
 
-            if (c == '\\') {
-                c = *s++;
-                switch (c) {
-                case 'b':
-                    PUT('\b');
-                    continue;
-                case 't':
-                    PUT('\t');
-                    continue;
-                case 'n':
-                    PUT('\n');
-                    continue;
-                case 'f':
-                    PUT('\f');
-                    continue;
-                case 'r':
-                    PUT('\r');
-                    continue;
-                case '/':
+    static value parse_string(vector<value> &v, stream &s) {
+        size_t offset = v.size();
+        size_t size = 0;
+        for (;;) {
+            v.resize(v.size() + 8);
+            char *span = v[offset].s;
+
+            for (size_t size_end = size + sizeof(value) * 7; size < size_end; ++size) {
+                span[size] = s.getch();
+                switch (span[size]) {
                 case '"':
-                case '\\':
-                    PUT(c);
-                    continue;
-                case 'u':
-                    static constexpr char hex2dec[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15};
+                    span[size] = '\0';
+                    v.resize(offset + (size + 8) / 8);
+                    return {offset, string_tag};
 
-                    cp = 0;
-                    for (int i = 0; i < 4; ++i) {
-                        c = *s++ - '0';
-                        if (c < sizeof(hex2dec) && hex2dec[c] >= 0)
-                            cp = cp * 16 + hex2dec[c];
-                        else
-                            return invalid_surrogate_pair;
-                    }
-
+                case '\\': {
+                    int cp = unescape(s);
                     if (cp >= 0xD800 && cp <= 0xDBFF) {
-                        if (s[0] != '\\' && s[1] != 'u')
-                            return invalid_surrogate_pair;
-                        s += 2;
-
-                        unsigned int high = cp;
-                        unsigned int low = 0;
-                        for (int i = 0; i < 4; ++i) {
-                            c = *s++ - '0';
-                            if (c < sizeof(hex2dec) && hex2dec[c] >= 0)
-                                low = low * 16 + hex2dec[c];
-                            else
-                                return invalid_surrogate_pair;
-                        }
-
+                        if (s.getch() != '\\')
+                            return error_invalid_surrogate_pair;
+                        int low = unescape(s);
                         if (low < 0xDC00 && low > 0xDFFF)
-                            return invalid_surrogate_pair;
-
-                        cp = 0x10000 + ((high & 0x3FF) << 10) + (low & 0x3FF);
+                            return error_invalid_surrogate_pair;
+                        cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
                     }
 
-                    if (cp < 0x80) {
-                        PUT(cp);
+                    if (cp < 0)
+                        return error_invalid_string_escape;
+                    else if (cp < 0x80) {
+                        span[size] = cp;
                     } else if (cp < 0x800) {
-                        if (n % sizeof(value) > 6)
-                            v.push_back(value());
-                        PUT(0xC0 | (cp >> 6));
-                        PUT(0x80 | (cp & 0x3F));
+                        span[size] = 0xC0 | (cp >> 6);
+                        span[++size] = 0x80 | (cp & 0x3F);
                     } else if (cp < 0xFFFF) {
-                        if (n % sizeof(value) > 5)
-                            v.push_back(value());
-                        PUT(0xE0 | (cp >> 12));
-                        PUT(0x80 | ((cp >> 6) & 0x3F));
-                        PUT(0x80 | (cp & 0x3F));
+                        span[size] = 0xE0 | (cp >> 12);
+                        span[++size] = 0x80 | ((cp >> 6) & 0x3F);
+                        span[++size] = 0x80 | (cp & 0x3F);
                     } else {
-                        if (n % sizeof(value) > 4)
-                            v.push_back(value());
-                        PUT(0xF0 | (cp >> 18));
-                        PUT(0x80 | ((cp >> 12) & 0x3F));
-                        PUT(0x80 | ((cp >> 6) & 0x3F));
-                        PUT(0x80 | (cp & 0x3F));
+                        span[size] = 0xF0 | (cp >> 18);
+                        span[++size] = 0x80 | ((cp >> 12) & 0x3F);
+                        span[++size] = 0x80 | ((cp >> 6) & 0x3F);
+                        span[++size] = 0x80 | (cp & 0x3F);
                     }
                     continue;
+                }
+
                 default:
-                    return invalid_string_escape;
+                    if ((unsigned int)span[size] < ' ')
+                        return error_invalid_string_char;
                 }
             }
-
-            PUT(c);
         }
-#undef PUT
     }
 
-    static int parse(vector<value> &v, const char *s) {
-        vector<value> backlog;
-        size_t frame = 0;
-        while (*s) {
-            s = skip_ws(s);
-            if (*s == 0) {
-                break;
-            } else if (*s == '[' || *s == '{') {
-                backlog.push_back({frame, *s == '[' ? array_tag : object_tag});
-                frame = backlog.size();
-                ++s;
-            } else if (*s == ']' || *s == '}') {
-                if (frame == 0)
-                    return stack_underflow;
+    vector<value> _backlog;
+    vector<value> _stack;
 
-                value saved = backlog[frame - 1];
-                if (saved.tag == array_tag && *s != ']')
-                    return mismatch_brace;
+    value parse_value(stream &s) {
+        switch (s.skipws()) {
+        case '"':
+            s.getch();
+            return parse_string(_stack, s);
+        case ',':
+            s.getch();
+            return token_value_separator;
+        case ':':
+            s.getch();
+            return token_name_separator;
+        case 'f':
+            s.getch();
+            if (s.getch() == 'a' && s.getch() == 'l' && s.getch() == 's' && s.getch() == 'e')
+                return {false, bool_tag};
+            return error_invalid_literal_name;
+        case 't':
+            s.getch();
+            if (s.getch() == 'r' && s.getch() == 'u' && s.getch() == 'e')
+                return {true, bool_tag};
+            return error_invalid_literal_name;
+        case 'n':
+            s.getch();
+            if (s.getch() == 'u' && s.getch() == 'l' && s.getch() == 'l')
+                return {0, null_tag};
+            return error_invalid_literal_name;
+        case '[':
+            s.getch();
+            return parse_array(s);
+        case ']':
+            s.getch();
+            return token_end_array;
+        case '{':
+            s.getch();
+            return parse_object(s);
+        case '}':
+            s.getch();
+            return token_end_object;
+        case '-':
+            s.getch();
+            if (is_digit(s.peek()))
+                return -parse_number(s).number;
+            break;
+        default:
+            if (is_digit(s.peek()))
+                return parse_number(s);
+            break;
+        }
+        return error_unexpected_character;
+    }
 
-                size_t size = backlog.size() - frame;
-                v.push_back({size, (value_tag)(saved.tag | prefix_flag)});
-                size_t offset = v.size();
-                v.append(backlog.end() - size, size);
+    value parse_array(stream &s) {
+        size_t frame = _backlog.size();
 
-                backlog.resize(frame);
-                backlog.back() = {offset, saved.tag};
-                frame = saved.payload;
+        value tok = parse_value(s);
 
-                ++s;
-            } else if (*s == ',') {
-                ++s;
-            } else if (*s == ':') {
-                ++s;
-            } else if (*s == '"') {
-                ++s;
-                value d;
-                int res = parse_string(v, &d, &s);
-                if (res)
-                    return res;
-                backlog.push_back(d);
-            } else if ((*s >= '0' && *s <= '9') || *s == '-') {
-                value d;
-                int res = parse_number(&d, &s);
-                if (res)
-                    return res;
-                backlog.push_back(d);
-            } else if (s[0] == 'f' && s[1] == 'a' && s[2] == 'l' && s[3] == 's' && s[4] == 'e') {
-                s += 5;
-                backlog.push_back({false, bool_tag});
-            } else if (s[0] == 't' && s[1] == 'r' && s[2] == 'u' && s[3] == 'e') {
-                s += 4;
-                backlog.push_back({true, bool_tag});
-            } else if (s[0] == 'n' && s[1] == 'u' && s[2] == 'l' && s[3] == 'l') {
-                s += 4;
-                backlog.push_back({0, null_tag});
-            } else {
-                return unexpected_character;
+        if (tok.tag < prefix_tag) {
+            _backlog.push_back(tok);
+            for (;;) {
+                tok = parse_value(s);
+                if (tok.tag != token_value_separator)
+                    break;
+
+                tok = parse_value(s);
+                if (tok.tag > prefix_tag)
+                    return tok.tag > error_tag ? tok : error_expecting_value;
+                _backlog.push_back(tok);
             }
         }
-        v.push_back(backlog.back());
-        return 0;
+
+        if (tok.tag == token_end_array) {
+            size_t size = _backlog.size() - frame;
+            _stack.push_back({size, prefix_tag});
+            _stack.append(_backlog.end() - size, size);
+            _backlog.resize(_backlog.size() - size);
+            return {_stack.size() - size, array_tag};
+        }
+
+        return tok.tag > error_tag ? tok : error_missing_comma_or_bracket;
     }
 
-    static vector<value> parse(const char *s) {
-        vector<value> data;
-        parse(data, s);
-        return data;
+    value parse_object(stream &s) {
+        size_t frame = _backlog.size();
+
+        value tok = parse_value(s);
+
+        if (tok.tag == string_tag) {
+            _backlog.push_back(tok);
+
+            tok = parse_value(s);
+            if (tok.tag != token_name_separator)
+                return tok.tag > error_tag ? tok : error_missing_colon;
+
+            tok = parse_value(s);
+            if (tok.tag > prefix_tag)
+                return tok.tag > error_tag ? tok : error_expecting_value;
+            _backlog.push_back(tok);
+
+            for (;;) {
+                tok = parse_value(s);
+                if (tok.tag != token_value_separator)
+                    break;
+
+                tok = parse_value(s);
+                if (tok.tag != string_tag)
+                    return tok.tag > error_tag ? tok : error_expecting_string;
+                _backlog.push_back(tok);
+
+                tok = parse_value(s);
+                if (tok.tag != token_name_separator)
+                    return tok.tag > error_tag ? tok : error_missing_colon;
+
+                tok = parse_value(s);
+                if (tok.tag > prefix_tag)
+                    return tok.tag > error_tag ? tok : error_expecting_value;
+                _backlog.push_back(tok);
+            }
+        }
+
+        if (tok.tag == token_end_object) {
+            size_t size = _backlog.size() - frame;
+            _stack.push_back({size, prefix_tag});
+            _stack.append(_backlog.end() - size, size);
+            _backlog.resize(_backlog.size() - size);
+            return {_stack.size() - size, object_tag};
+        }
+
+        return tok.tag > error_tag ? tok : error_missing_comma_or_bracket;
+    }
+
+    static constexpr size_t error_buffer_size = 80 * 3;
+
+    static void print_error(char errbuf[error_buffer_size], const char *s, const char *endptr, unsigned int errnum) {
+        size_t lineno = 1;
+        const char *left = s;
+        const char *right = s;
+        while (*right) {
+            if (*right++ == '\n') {
+                if (endptr < right)
+                    break;
+                left = right;
+                ++lineno;
+            }
+        }
+        size_t column = endptr - left;
+        if (column > 80)
+            left = endptr - 40;
+        if (right - endptr > 40)
+            right = endptr + 40;
+
+        static const char *err2str[] = {
+            "expecting string",
+            "expecting value",
+            "invalid literal name",
+            "invalid number",
+            "invalid string char",
+            "invalid string escape",
+            "invalid surrogate pair",
+            "missing colon",
+            "missing comma or bracket",
+            "second root",
+            "unexpected character",
+        };
+
+        snprintf(errbuf, error_buffer_size, "%zd:%zd: %s\n%.*s\n%*s", lineno, column, err2str[errnum - error_expecting_string], int(right - left), left, int(endptr - left), "^");
+    }
+
+    static vector<value> parse(const char *s, char errbuf[error_buffer_size] = nullptr) {
+        parser p;
+        stream in{s};
+        value root = p.parse_value(in);
+        if (root.tag < error_tag && in.skipws())
+            root = error_second_root;
+        if (root.tag > error_tag) {
+            if (errbuf)
+                print_error(errbuf, s, in._s, root.tag);
+            return {};
+        }
+        p._stack.push_back(root);
+        return static_cast<vector<value> &&>(p._stack);
     }
 };
 }

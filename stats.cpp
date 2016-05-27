@@ -55,6 +55,9 @@ static void GenStat(Stat &stat, jzon::view v) {
     case jzon::null_tag:
         stat.nullCount++;
         break;
+
+    default:
+        break;
     }
 }
 
@@ -74,9 +77,10 @@ int main(int argc, char **argv) {
         fread(source.data(), 1, size, fp);
         fclose(fp);
 
-        auto doc = jzon::parser::parse(source.data());
+        char errbuf[jzon::parser::error_buffer_size];
+        auto doc = jzon::parser::parse(source.data(), errbuf);
         if (doc.empty()) {
-            fprintf(stderr, "%s: error: parse failed\n", argv[i]);
+            fprintf(stderr, "%s:%s\n", argv[i], errbuf);
             continue;
         }
 

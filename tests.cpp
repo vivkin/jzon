@@ -19,7 +19,7 @@
 #endif
 
 void pvalue(jzon::value v) {
-    printf("%2d %6d %4x %15lu %13g\n", v.number == v.number, v.is_nan(), v.tag, v.payload, v.number);
+    printf("%2d %6d %8x %10u %13g\n", v.number == v.number, v.is_nan(), v.tag, v.payload, v.number);
 }
 
 bool parse_double(const char *json, double *d) {
@@ -51,6 +51,8 @@ int main(int __unused argc, char __unused **argv) {
     pvalue({~1ul, jzon::array_tag});
     pvalue({0xFFFFFFFFul, jzon::object_tag});
 
+    int double_parsed = 0;
+    int double_failed = 0;
 #define TEST_DOUBLE(json, expect)                                                                                                  \
     do {                                                                                                                           \
         union {                                                                                                                    \
@@ -62,9 +64,12 @@ int main(int __unused argc, char __unused **argv) {
             unsigned long actual_ul;                                                                                               \
         };                                                                                                                         \
         parse_double(json, &actual);                                                                                               \
-        if (expect != actual)                                                                                                      \
+        ++double_parsed;                                                                                                           \
+        if (expect != actual) {                                                                                                    \
+            ++double_failed;                                                                                                       \
             fprintf(stderr, "%s:%d: error: parsing %s failed\n    expect: %24.17g (0x%016lx)\n    actual: %24.17g (0x%016lx)\n\n", \
                     __FILE__, __LINE__, json, expect, expect_copy_ul, actual, actual_ul);                                          \
+        }                                                                                                                          \
     } while (0)
 
     TEST_DOUBLE("[0.0]", 0.0);
@@ -176,6 +181,8 @@ int main(int __unused argc, char __unused **argv) {
         "7567186443383770486037861622771738545623065874679014086723327636718751234567890123456789012345678901"
         "e-308]",
         2.2250738585072014e-308);
+
+    printf("%d/%d DOUBLE TESTS FAILED\n", double_failed, double_parsed);
 
     return 0;
 }

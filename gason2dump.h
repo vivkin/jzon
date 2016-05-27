@@ -85,6 +85,8 @@ struct dump {
             }
             s.push_back('}');
             break;
+        default:
+            break;
         }
     }
 

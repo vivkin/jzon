@@ -21,12 +21,14 @@ int main(int argc, char **argv) {
         fseek(fp, 0, SEEK_SET);
         jzon::vector<char> source;
         source.resize(size + 1);
+        source[size] = '\0';
         fread(source.data(), 1, size, fp);
         fclose(fp);
 
-        auto doc = jzon::parser::parse(source.data());
+        char errbuf[jzon::parser::error_buffer_size];
+        auto doc = jzon::parser::parse(source.data(), errbuf);
         if (doc.empty()) {
-            fprintf(stderr, "%s: error: parse failed\n", argv[i]);
+            fprintf(stderr, "%s:%s\n", argv[i], errbuf);
             continue;
         }
 
