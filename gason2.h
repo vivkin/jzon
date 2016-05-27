@@ -182,24 +182,36 @@ public:
     bool is_object() const { return _value.tag == object_tag; }
 
     double to_number() const {
-        assert(is_number());
-        return _value.number;
+        if (is_number())
+            return _value.number;
+        return 0;
     }
     bool to_bool() const {
-        assert(is_bool());
-        return _value.payload ? true : false;
+        if (is_bool())
+            return _value.payload ? true : false;
+        return false;
     }
     const char *to_string() const {
-        assert(is_string());
-        return _data[_value.payload].s;
+        if (is_string())
+            return _data[_value.payload].s;
+        return "";
     }
     size_t size() const {
-        assert(is_array() || is_object());
-        return _data[_value.payload - 1].payload;
+        if (is_array() || is_object())
+            return _data[_value.payload - 1].payload;
+        return 0;
     }
     view operator[](size_t index) const {
-        assert(is_array() || is_object());
-        return {_data, _data[_value.payload + index]};
+        if (index < size())
+            return {_data, _data[_value.payload + index]};
+        return {};
+    }
+    view get(const char *name) const {
+        if (is_object())
+            for (size_t i = 0, i_end = size(); i < i_end; i += 2)
+                if (!strcmp(operator[](i).to_string(), name))
+                    return operator[](i + 1);
+        return {};
     }
 };
 
@@ -231,7 +243,7 @@ struct parser {
                 integer = (integer * 10) + (s.getch() - '0');
 
         if (integer >= 0x1999999999999999ull) {
-            significand = integer;
+            significand = static_cast<double>(integer);
             while (is_digit(s.peek()))
                 significand = (significand * 10) + (s.getch() - '0');
         }
@@ -249,7 +261,7 @@ struct parser {
         }
 
         if (integer < 0x1999999999999999ull)
-            significand = integer;
+            significand = static_cast<double>(integer);
 
         if ((s.peek() | 0x20) == 'e') {
             s.getch();
@@ -348,16 +360,16 @@ struct parser {
                     if (cp < 0)
                         return error_invalid_string_escape;
                     else if (cp < 0x80) {
-                        span[size] = cp;
+                        span[size] = cp & 0x3F;
                     } else if (cp < 0x800) {
-                        span[size] = 0xC0 | (cp >> 6);
+                        span[size] = 0xC0 | ((cp >> 6) & 0x3F);
                         span[++size] = 0x80 | (cp & 0x3F);
                     } else if (cp < 0xFFFF) {
-                        span[size] = 0xE0 | (cp >> 12);
+                        span[size] = 0xE0 | ((cp >> 12) & 0x3F);
                         span[++size] = 0x80 | ((cp >> 6) & 0x3F);
                         span[++size] = 0x80 | (cp & 0x3F);
                     } else {
-                        span[size] = 0xF0 | (cp >> 18);
+                        span[size] = 0xF0 | ((cp >> 18) & 0x3F);
                         span[++size] = 0x80 | ((cp >> 12) & 0x3F);
                         span[++size] = 0x80 | ((cp >> 6) & 0x3F);
                         span[++size] = 0x80 | (cp & 0x3F);
