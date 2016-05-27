@@ -19,21 +19,21 @@ int main(int argc, char **argv) {
         fseek(fp, 0, SEEK_END);
         size_t size = ftell(fp);
         fseek(fp, 0, SEEK_SET);
-        jzon::vector<char> source;
+        gason2::vector<char> source;
         source.resize(size + 1);
         source[size] = '\0';
         fread(source.data(), 1, size, fp);
         fclose(fp);
 
-        char errbuf[jzon::parser::error_buffer_size];
-        auto doc = jzon::parser::parse(source.data(), errbuf);
+        char errbuf[gason2::parser::error_buffer_size];
+        auto doc = gason2::parser::parse(source.data(), errbuf);
         if (doc.empty()) {
             fprintf(stderr, "%s:%s\n", argv[i], errbuf);
             continue;
         }
 
-        auto root = jzon::view(doc);
-        jzon::vector<char> buffer;
+        auto root = gason2::view(doc);
+        gason2::vector<char> buffer;
         if (pretty)
             gason2::dump::prettify(buffer, root);
         else

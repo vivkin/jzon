@@ -18,14 +18,14 @@
 #define unlikely(x) (x)
 #endif
 
-void pvalue(jzon::value v) {
+void pvalue(gason2::value v) {
     printf("%2d %6d %8x %10u %13g\n", v.number == v.number, v.is_nan(), v.tag, v.payload, v.number);
 }
 
 bool parse_double(const char *json, double *d) {
-    auto doc = jzon::parser::parse(json);
+    auto doc = gason2::parser::parse(json);
     if (!doc.empty()) {
-        auto root = jzon::view(doc);
+        auto root = gason2::view(doc);
         if (root.is_array() && root.size() == 1 && root[0].is_number()) {
             *d = root[0].to_number();
             return true;
@@ -43,13 +43,13 @@ int main(int __unused argc, char __unused **argv) {
         pvalue(n);
     }
 
-    pvalue({0, jzon::null_tag});
-    pvalue({false, jzon::bool_tag});
-    pvalue({true, jzon::bool_tag});
-    pvalue({0xDEADBEEF, jzon::string_tag});
-    pvalue({0xBADCAB1E, jzon::string_tag});
-    pvalue({~1ul, jzon::array_tag});
-    pvalue({0xFFFFFFFFul, jzon::object_tag});
+    pvalue({0, gason2::null_tag});
+    pvalue({false, gason2::bool_tag});
+    pvalue({true, gason2::bool_tag});
+    pvalue({0xDEADBEEF, gason2::string_tag});
+    pvalue({0xBADCAB1E, gason2::string_tag});
+    pvalue({~1ul, gason2::array_tag});
+    pvalue({0xFFFFFFFFul, gason2::object_tag});
 
     int double_parsed = 0;
     int double_failed = 0;

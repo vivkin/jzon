@@ -6,7 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 
-namespace jzon {
+namespace gason2 {
 template <typename T>
 class vector {
     T *_data = nullptr;

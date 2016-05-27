@@ -4,7 +4,6 @@
 #include <stdio.h>
 
 namespace gason2 {
-using namespace jzon;
 struct dump {
     static void stringify(vector<char> &s, view v) {
         char buf[32];

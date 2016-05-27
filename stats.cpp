@@ -17,16 +17,16 @@ struct Stat {
     size_t stringLength; // Number of code units in all strings
 };
 
-static void GenStat(Stat &stat, jzon::view v) {
+static void GenStat(Stat &stat, gason2::view v) {
     switch (v.tag()) {
-    case jzon::array_tag:
+    case gason2::array_tag:
         for (size_t i = 0; i < v.size(); ++i)
             GenStat(stat, v[i]);
         stat.elementCount += v.size();
         stat.arrayCount++;
         break;
 
-    case jzon::object_tag:
+    case gason2::object_tag:
         for (size_t i = 0; i < v.size(); i += 2) {
             stat.stringLength += strlen(v[i].to_string());
             GenStat(stat, v[i + 1]);
@@ -36,23 +36,23 @@ static void GenStat(Stat &stat, jzon::view v) {
         stat.objectCount++;
         break;
 
-    case jzon::string_tag:
+    case gason2::string_tag:
         stat.stringCount++;
         stat.stringLength += strlen(v.to_string());
         break;
 
-    case jzon::number_tag:
+    case gason2::number_tag:
         stat.numberCount++;
         break;
 
-    case jzon::bool_tag:
+    case gason2::bool_tag:
         if (v.to_bool())
             stat.trueCount++;
         else
             stat.falseCount++;
         break;
 
-    case jzon::null_tag:
+    case gason2::null_tag:
         stat.nullCount++;
         break;
 
@@ -77,14 +77,14 @@ int main(int argc, char **argv) {
         fread(source.data(), 1, size, fp);
         fclose(fp);
 
-        char errbuf[jzon::parser::error_buffer_size];
-        auto doc = jzon::parser::parse(source.data(), errbuf);
+        char errbuf[gason2::parser::error_buffer_size];
+        auto doc = gason2::parser::parse(source.data(), errbuf);
         if (doc.empty()) {
             fprintf(stderr, "%s:%s\n", argv[i], errbuf);
             continue;
         }
 
-        auto root = jzon::view(doc);
+        auto root = gason2::view(doc);
         Stat stat = {};
         GenStat(stat, root);
 
