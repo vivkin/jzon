@@ -2,7 +2,6 @@
 #include "gason2dump.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <vector>
 
 struct Stat {
     size_t objectCount;
@@ -73,8 +72,9 @@ int main(int argc, char **argv) {
         fseek(fp, 0, SEEK_END);
         size_t size = ftell(fp);
         fseek(fp, 0, SEEK_SET);
-        std::vector<char> source;
+        gason2::vector<char> source;
         source.resize(size + 1);
+        source.back() = '\0';
         fread(source.data(), 1, size, fp);
         fclose(fp);
 

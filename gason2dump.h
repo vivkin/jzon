@@ -159,14 +159,13 @@ struct dump {
         const char *left = json;
         const char *right = json;
         const char *endptr = json + doc.error_offset();
-        while (*right) {
+        while (*right)
             if (*right++ == '\n') {
                 if (endptr < right)
                     break;
                 left = right;
                 ++lineno;
             }
-        }
 
         int column = endptr - left;
         if (column > 80)
