@@ -360,16 +360,16 @@ struct parser {
                     if (cp < 0)
                         return error_invalid_string_escape;
                     else if (cp < 0x80) {
-                        span[size] = cp & 0x3F;
+                        span[size] = (char)cp;
                     } else if (cp < 0x800) {
-                        span[size] = 0xC0 | ((cp >> 6) & 0x3F);
+                        span[size] = 0xC0 | ((char)(cp >> 6));
                         span[++size] = 0x80 | (cp & 0x3F);
                     } else if (cp < 0xFFFF) {
-                        span[size] = 0xE0 | ((cp >> 12) & 0x3F);
+                        span[size] = 0xE0 | ((char)(cp >> 12));
                         span[++size] = 0x80 | ((cp >> 6) & 0x3F);
                         span[++size] = 0x80 | (cp & 0x3F);
                     } else {
-                        span[size] = 0xF0 | ((cp >> 18) & 0x3F);
+                        span[size] = 0xF0 | ((char)(cp >> 18));
                         span[++size] = 0x80 | ((cp >> 12) & 0x3F);
                         span[++size] = 0x80 | ((cp >> 6) & 0x3F);
                         span[++size] = 0x80 | (cp & 0x3F);
