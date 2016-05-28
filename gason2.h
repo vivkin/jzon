@@ -206,7 +206,7 @@ public:
             return {_data, _data[_value.payload + index]};
         return {};
     }
-    view get(const char *name) const {
+    view operator[](const char *name) const {
         if (is_object())
             for (size_t i = 0, i_end = size(); i < i_end; i += 2)
                 if (!strcmp(operator[](i).to_string(), name))

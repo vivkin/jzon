@@ -24,8 +24,8 @@ void pvalue(gason2::value v) {
 
 bool parse_double(const char *json, double *d) {
     gason2::document doc;
-    if (doc.parse(json) && doc.is_array() && doc.size() == 1 && doc[0].is_number()) {
-        *d = doc[0].to_number();
+    if (doc.parse(json) && doc.is_array() && doc.size() == 1 && doc[(size_t)0].is_number()) {
+        *d = doc[(size_t)0].to_number();
         return true;
     }
     return false;
