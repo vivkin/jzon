@@ -14,7 +14,15 @@ TEST_SUITE("JSON_checker");
 
 TEST_CASE("fail") {
     gason2::document doc;
-    CHECK(!doc.parse(u8R"json("A JSON payload should be an object or array, not a string.")json"));
+    CHECK(doc.parse(u8R"json("A JSON payload should be an object or array, not a string.")json"));
+    CHECK(!doc.parse(u8R"json(["Unclosed array")json"));
+    CHECK(!doc.parse(u8R"json({unquoted_key: "keys must be quoted"})json"));
+    CHECK(!doc.parse(u8R"json(["extra comma",])json"));
+    CHECK(!doc.parse(u8R"json(["double extra comma",,])json"));
+    CHECK(!doc.parse(u8R"json([   , "<-- missing value"])json"));
+    CHECK(!doc.parse(u8R"json(["Comma after the close"],)json"));
+    CHECK(!doc.parse(u8R"json(["Extra close"]])json"));
+    CHECK(!doc.parse(u8R"json({"Extra comma": true,})json"));
     CHECK(!doc.parse(u8R"json({"Extra value after close": true} "misplaced quoted value")json"));
     CHECK(!doc.parse(u8R"json({"Illegal expression": 1 + 2})json"));
     CHECK(!doc.parse(u8R"json({"Illegal invocation": alert()})json"));
@@ -23,9 +31,8 @@ TEST_CASE("fail") {
     CHECK(!doc.parse(u8R"json(["Illegal backslash escape: \x15"])json"));
     CHECK(!doc.parse(u8R"json([\naked])json"));
     CHECK(!doc.parse(u8R"json(["Illegal backslash escape: \017"])json"));
-    CHECK(!doc.parse(u8R"json([[[[[[[[[[[[[[[[[[[["Too deep"]]]]]]]]]]]]]]]]]]]])json"));
+    CHECK(doc.parse(u8R"json([[[[[[[[[[[[[[[[[[[["Too deep"]]]]]]]]]]]]]]]]]]]])json"));
     CHECK(!doc.parse(u8R"json({"Missing colon" null})json"));
-    CHECK(!doc.parse(u8R"json(["Unclosed array")json"));
     CHECK(!doc.parse(u8R"json({"Double colon":: null})json"));
     CHECK(!doc.parse(u8R"json({"Comma instead of colon", null})json"));
     CHECK(!doc.parse(u8R"json(["Colon instead of comma": false])json"));
@@ -38,17 +45,10 @@ break"])json"));
     CHECK(!doc.parse(u8R"json(["line\
 break"])json"));
     CHECK(!doc.parse(u8R"json([0e])json"));
-    CHECK(!doc.parse(u8R"json({unquoted_key: "keys must be quoted"})json"));
     CHECK(!doc.parse(u8R"json([0e+])json"));
     CHECK(!doc.parse(u8R"json([0e+-1])json"));
     CHECK(!doc.parse(u8R"json({"Comma instead if closing brace": true,)json"));
     CHECK(!doc.parse(u8R"json(["mismatch"})json"));
-    CHECK(!doc.parse(u8R"json(["extra comma",])json"));
-    CHECK(!doc.parse(u8R"json(["double extra comma",,])json"));
-    CHECK(!doc.parse(u8R"json([   , "<-- missing value"])json"));
-    CHECK(!doc.parse(u8R"json(["Comma after the close"],)json"));
-    CHECK(!doc.parse(u8R"json(["Extra close"]])json"));
-    CHECK(!doc.parse(u8R"json({"Extra comma": true,})json"));
 }
 
 TEST_CASE("pass") {
