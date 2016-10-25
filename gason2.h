@@ -4,7 +4,6 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 namespace gason2 {
 template <typename T>
@@ -219,17 +218,17 @@ struct parser {
     struct stream {
         const char *_s;
 
-        char skipws() {
+        int skipws() {
             while (*_s == '\x20' || *_s == '\x9' || *_s == '\xD' || *_s == '\xA')
                 ++_s;
-            return *_s;
+            return (int)(unsigned char)*_s;
         }
-        char getch() { return *_s++; }
-        char peek() const { return *_s; }
+        int getch() { return (int)(unsigned char)*_s++; }
+        int peek() const { return (int)(unsigned char)*_s; }
         const char *c_str() const { return _s; }
     };
 
-    static inline bool is_digit(char c) { return c >= '0' && c <= '9'; }
+    static inline bool is_digit(int c) { return c >= '0' && c <= '9'; }
 
     static value parse_number(stream &s) {
         unsigned long long integer = 0;
