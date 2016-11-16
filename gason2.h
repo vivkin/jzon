@@ -136,10 +136,10 @@ enum class error : unsigned int {
 };
 
 enum class token : unsigned int {
-    end_array = nan_mask | token_flag | ']',
-    end_object = nan_mask | token_flag | '}',
-    name_separator = nan_mask | token_flag | ',',
-    value_separator = nan_mask | token_flag | ':',
+    end_array = nan_mask | token_flag,
+    end_object,
+    name_separator,
+    value_separator,
 };
 
 enum class type : unsigned int {
