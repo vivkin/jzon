@@ -158,9 +158,9 @@ union box {
         unsigned int payload;
         union {
             unsigned int bits;
-            token token;
-            error error;
-            type type;
+            gason2::token token;
+            gason2::error error;
+            gason2::type type;
         } tag;
     };
 
