@@ -154,7 +154,7 @@ struct dump {
         if (right - left > 80)
             right = endptr + 80 - (endptr - left);
 
-        const char *str = str = "not an error";
+        const char *str = "not an error";
         switch (doc.error_code()) {
         case error::expecting_string: str = "error expecting string"; break;
         case error::expecting_value: str = "error expecting value"; break;
