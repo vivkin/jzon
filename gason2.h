@@ -184,9 +184,7 @@ protected:
 public:
     view(const box *data = nullptr, box v = type::null) : _data(data), _value(v) {}
 
-    type tag() const {
-        return _value.is_nan() ? _value.tag.type : type::number;
-    }
+    type tag() const { return _value.is_nan() ? _value.tag.type : type::number; }
 
     bool is_number() const { return !_value.is_nan(); }
     bool is_null() const { return _value.tag.type == type::null; }
@@ -195,31 +193,11 @@ public:
     bool is_array() const { return _value.tag.type == type::array; }
     bool is_object() const { return _value.tag.type == type::object; }
 
-    double to_number() const {
-        if (is_number())
-            return _value.number;
-        return 0;
-    }
-    bool to_bool() const {
-        if (is_bool())
-            return _value.payload ? true : false;
-        return false;
-    }
-    const char *to_string() const {
-        if (is_string())
-            return _data[_value.payload].bytes;
-        return "";
-    }
-    size_t size() const {
-        if (is_array() || is_object())
-            return _data[_value.payload - 1].payload;
-        return 0;
-    }
-    view operator[](size_t index) const {
-        if (index < size())
-            return {_data, _data[_value.payload + index]};
-        return {};
-    }
+    double to_number() const { return is_number() ? _value.number : 0; }
+    bool to_bool() const { return is_bool() && _value.payload; }
+    const char *to_string() const { return is_string() ? _data[_value.payload].bytes : ""; }
+    size_t size() const { return (is_array() || is_object()) ? _data[_value.payload - 1].payload : 0; }
+    view operator[](size_t index) const { return index < size() ? view{_data, _data[_value.payload + index]} : view{}; }
     view operator[](const char *name) const {
         if (is_object())
             for (size_t i = 0, i_end = size(); i < i_end; i += 2)
