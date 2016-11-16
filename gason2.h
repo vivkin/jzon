@@ -156,19 +156,24 @@ union box {
     double number;
     struct {
         unsigned int payload;
-        unsigned int tag;
+        union {
+            unsigned int bits;
+            token token;
+            error error;
+            type type;
+        } tag;
     };
 
     box() = default;
     constexpr box(double x) : number(x) {}
-    constexpr box(error t) : tag(static_cast<unsigned int>(t)) {}
-    constexpr box(token t) : tag(static_cast<unsigned int>(t)) {}
-    constexpr box(type t, size_t x) : payload(x), tag(static_cast<unsigned int>(t)) {}
+    constexpr box(error t) : tag({static_cast<unsigned int>(t)}) {}
+    constexpr box(token t) : tag({static_cast<unsigned int>(t)}) {}
+    constexpr box(type t, size_t x = 0) : payload(x), tag({static_cast<unsigned int>(t)}) {}
 
-    constexpr bool is_nan() const { return tag > nan_mask; }
-    constexpr bool is_error() const { return is_nan() && (tag & error_flag); }
-    constexpr bool is_token() const { return is_nan() && (tag & token_flag); }
-    constexpr bool is_value() const { return !is_nan() || ((tag & (error_flag | token_flag)) == 0); }
+    constexpr bool is_nan() const { return tag.bits > nan_mask; }
+    constexpr bool is_error() const { return is_nan() && (tag.bits & error_flag); }
+    constexpr bool is_token() const { return is_nan() && (tag.bits & token_flag); }
+    constexpr bool is_value() const { return !is_nan() || !(tag.bits & (error_flag | token_flag)); }
 };
 
 enum value_tag {
