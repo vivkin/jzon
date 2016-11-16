@@ -10,6 +10,36 @@
 #define DOCTEST_BREAK_INTO_DEBUGGER()
 #endif
 
+TEST_SUITE("internals");
+
+void pbox(gason2::box v) {
+    printf("%2d %6d %8x %10u %13g\n", v.number == v.number, v.is_nan(), v.tag, v.payload, v.number);
+}
+
+TEST_CASE("box") {
+    printf("%2s %6s %4s %15s %13s\n", "==", "is_nan", "tag", "payload", "number");
+
+    double numbers[] = {0.0, 1.0, 1.0 / 3.0, 5.45, 7.62, 1e40, DBL_MIN, DBL_EPSILON, DBL_MAX, INFINITY, NAN};
+
+    for (auto n : numbers) {
+        pbox(-n);
+        pbox(n);
+    }
+
+    pbox(gason2::error::expecting_value);
+    pbox(gason2::token::value_separator);
+
+    pbox({gason2::type::null, 0});
+    pbox({gason2::type::boolean, false});
+    pbox({gason2::type::boolean, true});
+    pbox({gason2::type::string, 0xDEADBEEF});
+    pbox({gason2::type::string, 0xBADCAB1E});
+    pbox({gason2::type::array, ~1ul});
+    pbox({gason2::type::object, 0xFFFFFFFFul});
+}
+
+TEST_SUITE_END();
+
 TEST_SUITE("JSON_checker");
 
 TEST_CASE("fail") {

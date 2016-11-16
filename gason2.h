@@ -117,6 +117,60 @@ public:
     bool empty() const { return _size == 0; }
 };
 
+constexpr unsigned int nan_mask = 0xFFF00000;
+constexpr unsigned int error_flag = 1 << 16;
+constexpr unsigned int token_flag = 2 << 16;
+
+enum class error : unsigned int {
+    expecting_string = nan_mask | error_flag,
+    expecting_value,
+    invalid_literal_name,
+    invalid_number,
+    invalid_string_char,
+    invalid_string_escape,
+    invalid_surrogate_pair,
+    missing_colon,
+    missing_comma_or_bracket,
+    second_root,
+    unexpected_character,
+};
+
+enum class token : unsigned int {
+    end_array = nan_mask | token_flag | ']',
+    end_object = nan_mask | token_flag | '}',
+    name_separator = nan_mask | token_flag | ',',
+    value_separator = nan_mask | token_flag | ':',
+};
+
+enum class type : unsigned int {
+    number = nan_mask,
+    null,
+    boolean,
+    string,
+    array,
+    object,
+};
+
+union box {
+    char bytes[8];
+    double number;
+    struct {
+        unsigned int payload;
+        unsigned int tag;
+    };
+
+    box() = default;
+    constexpr box(double x) : number(x) {}
+    constexpr box(error t) : tag(static_cast<unsigned int>(t)) {}
+    constexpr box(token t) : tag(static_cast<unsigned int>(t)) {}
+    constexpr box(type t, size_t x) : payload(x), tag(static_cast<unsigned int>(t)) {}
+
+    constexpr bool is_nan() const { return tag > nan_mask; }
+    constexpr bool is_error() const { return is_nan() && (tag & error_flag); }
+    constexpr bool is_token() const { return is_nan() && (tag & token_flag); }
+    constexpr bool is_value() const { return !is_nan() || ((tag & (error_flag | token_flag)) == 0); }
+};
+
 enum value_tag {
     number_tag = 0xFFF00000,
     null_tag,
@@ -127,13 +181,14 @@ enum value_tag {
 
     prefix_tag,
 
-    token_end_array,
+    token_mask = number_tag + 0x10,
+    token_end_array = token_mask,
     token_end_object,
     token_name_separator,
     token_value_separator,
 
-    error_tag,
-    error_expecting_string,
+    error_mask = number_tag + 0x100,
+    error_expecting_string = error_mask,
     error_expecting_value,
     error_invalid_literal_name,
     error_invalid_number,
