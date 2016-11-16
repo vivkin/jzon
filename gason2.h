@@ -176,15 +176,13 @@ union box {
     constexpr bool is_value() const { return !is_nan() || !(tag.bits & (error_flag | token_flag)); }
 };
 
-using value = box;
-
 class view {
 protected:
-    const value *_data;
-    value _value;
+    const box *_data;
+    box _value;
 
 public:
-    view(const value *data = nullptr, value v = type::null) : _data(data), _value(v) {}
+    view(const box *data = nullptr, box v = type::null) : _data(data), _value(v) {}
 
     type tag() const {
         return _value.is_nan() ? _value.tag.type : type::number;
@@ -247,7 +245,7 @@ struct parser {
 
     static inline bool is_digit(int c) { return c >= '0' && c <= '9'; }
 
-    static value parse_number(stream &s) {
+    static box parse_number(stream &s) {
         unsigned long long integer = 0;
         double significand = 0;
         int fraction = 0;
@@ -347,10 +345,10 @@ struct parser {
         }
     }
 
-    vector<value> _backlog;
-    vector<value> _stack;
+    vector<box> _backlog;
+    vector<box> _stack;
 
-    value parse_value(stream &s) {
+    box parse_value(stream &s) {
         switch (s.skipws()) {
         case '"':
             s.getch();
@@ -401,13 +399,13 @@ struct parser {
         return error::unexpected_character;
     }
 
-    value parse_string(stream &s) {
+    box parse_string(stream &s) {
         size_t offset = _stack.size();
         size_t length = 0;
         for (;;) {
             _stack.resize(_stack.size() + 8);
             char *span = _stack[offset].bytes;
-            for (size_t size_end = length + sizeof(value) * 7; length < size_end; ++length) {
+            for (size_t size_end = length + sizeof(box) * 7; length < size_end; ++length) {
                 switch (span[length] = s.getch()) {
                 case '"':
                     span[length] = '\0';
@@ -450,10 +448,10 @@ struct parser {
         }
     }
 
-    value parse_array(stream &s) {
+    box parse_array(stream &s) {
         size_t frame = _backlog.size();
 
-        value tok = parse_value(s);
+        box tok = parse_value(s);
 
         if (tok.is_value()) {
             _backlog.push_back(tok);
@@ -482,10 +480,10 @@ struct parser {
         return tok.is_error() ? tok : error::missing_comma_or_bracket;
     }
 
-    value parse_object(stream &s) {
+    box parse_object(stream &s) {
         size_t frame = _backlog.size();
 
-        value tok = parse_value(s);
+        box tok = parse_value(s);
 
         if (tok.tag.type == type::string) {
             _backlog.push_back(tok);
@@ -537,7 +535,7 @@ struct parser {
 };
 
 class document : public view {
-    vector<value> _stack;
+    vector<box> _stack;
 
 public:
     bool parse(const char *json) {
@@ -554,7 +552,7 @@ public:
             return false;
         }
 
-        _stack = static_cast<vector<value> &&>(p._stack);
+        _stack = static_cast<vector<box> &&>(p._stack);
         _data = _stack.data();
 
         return true;
