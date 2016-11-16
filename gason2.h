@@ -176,50 +176,7 @@ union box {
     constexpr bool is_value() const { return !is_nan() || !(tag.bits & (error_flag | token_flag)); }
 };
 
-enum value_tag {
-    number_tag = 0xFFF00000,
-    null_tag,
-    bool_tag,
-    string_tag,
-    array_tag,
-    object_tag,
-
-    prefix_tag,
-
-    token_mask = number_tag + 0x10,
-    token_end_array = token_mask,
-    token_end_object,
-    token_name_separator,
-    token_value_separator,
-
-    error_mask = number_tag + 0x100,
-    error_expecting_string = error_mask,
-    error_expecting_value,
-    error_invalid_literal_name,
-    error_invalid_number,
-    error_invalid_string_char,
-    error_invalid_string_escape,
-    error_invalid_surrogate_pair,
-    error_missing_colon,
-    error_missing_comma_or_bracket,
-    error_second_root,
-    error_unexpected_character,
-};
-
-union value {
-    char s[8];
-    double number;
-    struct {
-        unsigned int payload;
-        unsigned int tag;
-    };
-
-    value() = default;
-    constexpr value(double n) : number(n) {}
-    constexpr value(value_tag tag) : payload(0), tag(tag) {}
-    constexpr value(size_t payload, value_tag tag) : payload(payload), tag(tag) {}
-    constexpr bool is_nan() const { return tag > number_tag; }
-};
+using value = box;
 
 class view {
 protected:
@@ -227,18 +184,18 @@ protected:
     value _value;
 
 public:
-    view(const value *data = nullptr, value v = null_tag) : _data(data), _value(v) {}
+    view(const value *data = nullptr, value v = type::null) : _data(data), _value(v) {}
 
-    value_tag tag() const {
-        return _value.is_nan() ? value_tag(_value.tag) : number_tag;
+    type tag() const {
+        return _value.is_nan() ? _value.tag.type : type::number;
     }
 
     bool is_number() const { return !_value.is_nan(); }
-    bool is_null() const { return _value.tag == null_tag; }
-    bool is_bool() const { return _value.tag == bool_tag; }
-    bool is_string() const { return _value.tag == string_tag; }
-    bool is_array() const { return _value.tag == array_tag; }
-    bool is_object() const { return _value.tag == object_tag; }
+    bool is_null() const { return _value.tag.type == type::null; }
+    bool is_bool() const { return _value.tag.type == type::boolean; }
+    bool is_string() const { return _value.tag.type == type::string; }
+    bool is_array() const { return _value.tag.type == type::array; }
+    bool is_object() const { return _value.tag.type == type::object; }
 
     double to_number() const {
         if (is_number())
@@ -252,7 +209,7 @@ public:
     }
     const char *to_string() const {
         if (is_string())
-            return _data[_value.payload].s;
+            return _data[_value.payload].bytes;
         return "";
     }
     size_t size() const {
@@ -327,14 +284,14 @@ struct parser {
             if (s.peek() == '-') {
                 s.getch();
                 if (!is_digit(s.peek()))
-                    return error_invalid_number;
+                    return error::invalid_number;
                 while (is_digit(s.peek()))
                     exponent = (exponent * 10) - (s.getch() - '0');
             } else {
                 if (s.peek() == '+')
                     s.getch();
                 if (!is_digit(s.peek()))
-                    return error_invalid_number;
+                    return error::invalid_number;
                 while (is_digit(s.peek()))
                     exponent = (exponent * 10) + (s.getch() - '0');
             }
@@ -400,37 +357,37 @@ struct parser {
             return parse_string(s);
         case ',':
             s.getch();
-            return token_value_separator;
+            return token::value_separator;
         case ':':
             s.getch();
-            return token_name_separator;
+            return token::name_separator;
         case 'f':
             s.getch();
             if (s.getch() == 'a' && s.getch() == 'l' && s.getch() == 's' && s.getch() == 'e')
-                return {false, bool_tag};
-            return error_invalid_literal_name;
+                return {type::boolean, false};
+            return error::invalid_literal_name;
         case 't':
             s.getch();
             if (s.getch() == 'r' && s.getch() == 'u' && s.getch() == 'e')
-                return {true, bool_tag};
-            return error_invalid_literal_name;
+                return {type::boolean, true};
+            return error::invalid_literal_name;
         case 'n':
             s.getch();
             if (s.getch() == 'u' && s.getch() == 'l' && s.getch() == 'l')
-                return {0, null_tag};
-            return error_invalid_literal_name;
+                return type::null;
+            return error::invalid_literal_name;
         case '[':
             s.getch();
             return parse_array(s);
         case ']':
             s.getch();
-            return token_end_array;
+            return token::end_array;
         case '{':
             s.getch();
             return parse_object(s);
         case '}':
             s.getch();
-            return token_end_object;
+            return token::end_object;
         case '-':
             s.getch();
             if (is_digit(s.peek()))
@@ -441,7 +398,7 @@ struct parser {
                 return parse_number(s);
             break;
         }
-        return error_unexpected_character;
+        return error::unexpected_character;
     }
 
     value parse_string(stream &s) {
@@ -449,25 +406,25 @@ struct parser {
         size_t length = 0;
         for (;;) {
             _stack.resize(_stack.size() + 8);
-            char *span = _stack[offset].s;
+            char *span = _stack[offset].bytes;
             for (size_t size_end = length + sizeof(value) * 7; length < size_end; ++length) {
                 switch (span[length] = s.getch()) {
                 case '"':
                     span[length] = '\0';
                     _stack.resize(offset + (length + 8) / 8);
-                    return {offset, string_tag};
+                    return {type::string, offset};
                 case '\\': {
                     int cp = unescape(s);
                     if (cp >= 0xD800 && cp <= 0xDBFF) {
                         if (s.getch() != '\\')
-                            return error_invalid_surrogate_pair;
+                            return error::invalid_surrogate_pair;
                         int low = unescape(s);
                         if (low < 0xDC00 && low > 0xDFFF)
-                            return error_invalid_surrogate_pair;
+                            return error::invalid_surrogate_pair;
                         cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
                     }
                     if (cp < 0)
-                        return error_invalid_string_escape;
+                        return error::invalid_string_escape;
                     else if (cp < 0x80) {
                         span[length] = (char)cp;
                     } else if (cp < 0x800) {
@@ -487,7 +444,7 @@ struct parser {
                 }
                 default:
                     if ((unsigned int)span[length] < ' ')
-                        return error_invalid_string_char;
+                        return error::invalid_string_char;
                 }
             }
         }
@@ -498,29 +455,31 @@ struct parser {
 
         value tok = parse_value(s);
 
-        if (tok.tag < prefix_tag) {
+        if (tok.is_value()) {
             _backlog.push_back(tok);
             for (;;) {
                 tok = parse_value(s);
-                if (tok.tag != token_value_separator)
+                if (tok.tag.token != token::value_separator)
                     break;
 
                 tok = parse_value(s);
-                if (tok.tag > prefix_tag)
-                    return tok.tag > error_tag ? tok : error_expecting_value;
+                if (tok.is_token())
+                    return error::expecting_value;
+                if (tok.is_error())
+                    return tok;
                 _backlog.push_back(tok);
             }
         }
 
-        if (tok.tag == token_end_array) {
+        if (tok.tag.token == token::end_array) {
             size_t size = _backlog.size() - frame;
-            _stack.push_back({size, prefix_tag});
+            _stack.push_back({type::array, size});
             _stack.append(_backlog.end() - size, size);
             _backlog.resize(_backlog.size() - size);
-            return {_stack.size() - size, array_tag};
+            return {type::array, _stack.size() - size};
         }
 
-        return tok.tag > error_tag ? tok : error_missing_comma_or_bracket;
+        return tok.is_error() ? tok : error::missing_comma_or_bracket;
     }
 
     value parse_object(stream &s) {
@@ -528,48 +487,52 @@ struct parser {
 
         value tok = parse_value(s);
 
-        if (tok.tag == string_tag) {
+        if (tok.tag.type == type::string) {
             _backlog.push_back(tok);
 
             tok = parse_value(s);
-            if (tok.tag != token_name_separator)
-                return tok.tag > error_tag ? tok : error_missing_colon;
+            if (tok.tag.token != token::name_separator)
+                return error::missing_colon;
 
             tok = parse_value(s);
-            if (tok.tag > prefix_tag)
-                return tok.tag > error_tag ? tok : error_expecting_value;
+            if (!tok.is_value())
+                return tok.is_error() ? tok : error::expecting_value;
             _backlog.push_back(tok);
 
             for (;;) {
                 tok = parse_value(s);
-                if (tok.tag != token_value_separator)
+                if (tok.tag.token != token::value_separator)
                     break;
 
                 tok = parse_value(s);
-                if (tok.tag != string_tag)
-                    return tok.tag > error_tag ? tok : error_expecting_string;
+                if (tok.is_error())
+                    return tok;
+                if (tok.tag.type != type::string)
+                    return error::expecting_string;
                 _backlog.push_back(tok);
 
                 tok = parse_value(s);
-                if (tok.tag != token_name_separator)
-                    return tok.tag > error_tag ? tok : error_missing_colon;
+                if (tok.tag.token != token::name_separator)
+                    return tok.is_error() ? tok : error::missing_colon;
 
                 tok = parse_value(s);
-                if (tok.tag > prefix_tag)
-                    return tok.tag > error_tag ? tok : error_expecting_value;
+                if (tok.is_token())
+                    return error::expecting_value;
+                if (tok.is_error())
+                    return tok;
                 _backlog.push_back(tok);
             }
         }
 
-        if (tok.tag == token_end_object) {
+        if (tok.tag.token == token::end_object) {
             size_t size = _backlog.size() - frame;
-            _stack.push_back({size, prefix_tag});
+            _stack.push_back({type::object, size});
             _stack.append(_backlog.end() - size, size);
             _backlog.resize(_backlog.size() - size);
-            return {_stack.size() - size, object_tag};
+            return {type::object, _stack.size() - size};
         }
 
-        return tok.tag > error_tag ? tok : error_missing_comma_or_bracket;
+        return tok.is_error() ? tok : error::missing_comma_or_bracket;
     }
 };
 
@@ -583,10 +546,10 @@ public:
 
         _value = p.parse_value(s);
 
-        if (_value.tag < error_tag && s.skipws())
-            _value = error_second_root;
+        if (!_value.is_error() && !_value.is_token() && s.skipws())
+            _value = error::second_root;
 
-        if (_value.tag > error_tag) {
+        if (_value.is_error()) {
             _value.payload = s.c_str() - json;
             return false;
         }
@@ -597,6 +560,7 @@ public:
         return true;
     }
 
-    size_t error_offset() const { return _value.tag > error_tag ? _value.payload : 0; }
+    error error_code() const { return _value.tag.error; }
+    size_t error_offset() const { return _value.is_error() ? _value.payload : 0; }
 };
 }

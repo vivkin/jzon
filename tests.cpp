@@ -13,7 +13,7 @@
 TEST_SUITE("internals");
 
 void pbox(gason2::box v) {
-    printf("%2d %6d %8x %10u %13g\n", v.number == v.number, v.is_nan(), v.tag, v.payload, v.number);
+    printf("%2d %6d %8x %10u %13g\n", v.number == v.number, v.is_nan(), v.tag.bits, v.payload, v.number);
 }
 
 TEST_CASE("box") {
@@ -332,10 +332,6 @@ TEST_SUITE_END();
 #define unlikely(x) (x)
 #endif
 
-void pvalue(gason2::value v) {
-    printf("%2d %6d %8x %10u %13g\n", v.number == v.number, v.is_nan(), v.tag, v.payload, v.number);
-}
-
 bool parse_double(const char *json, double *d) {
     gason2::document doc;
     if (doc.parse(json) && doc.is_array() && doc.size() == 1 && doc[(size_t)0].is_number()) {
@@ -346,22 +342,6 @@ bool parse_double(const char *json, double *d) {
 }
 
 int main2(int __unused argc, char __unused **argv) {
-    printf("%2s %6s %4s %15s %13s\n", "==", "is_nan", "tag", "payload", "number");
-
-    double numbers[] = {0.0, 1.0, 1.0 / 3.0, 5.45, 7.62, 1e40, DBL_MIN, DBL_EPSILON, DBL_MAX, INFINITY, NAN};
-    for (auto n : numbers) {
-        pvalue(-n);
-        pvalue(n);
-    }
-
-    pvalue({0, gason2::null_tag});
-    pvalue({false, gason2::bool_tag});
-    pvalue({true, gason2::bool_tag});
-    pvalue({0xDEADBEEF, gason2::string_tag});
-    pvalue({0xBADCAB1E, gason2::string_tag});
-    pvalue({~1ul, gason2::array_tag});
-    pvalue({0xFFFFFFFFul, gason2::object_tag});
-
     int double_parsed = 0;
     int double_failed = 0;
 #define TEST_DOUBLE(json, expect)                                                                                                  \

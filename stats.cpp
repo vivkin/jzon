@@ -19,14 +19,14 @@ struct Stat {
 
 static void GenStat(Stat &stat, gason2::view v) {
     switch (v.tag()) {
-    case gason2::array_tag:
+    case gason2::type::array:
         for (size_t i = 0; i < v.size(); ++i)
             GenStat(stat, v[i]);
         stat.elementCount += v.size();
         stat.arrayCount++;
         break;
 
-    case gason2::object_tag:
+    case gason2::type::object:
         for (size_t i = 0; i < v.size(); i += 2) {
             stat.stringLength += strlen(v[i].to_string());
             GenStat(stat, v[i + 1]);
@@ -36,23 +36,23 @@ static void GenStat(Stat &stat, gason2::view v) {
         stat.objectCount++;
         break;
 
-    case gason2::string_tag:
+    case gason2::type::string:
         stat.stringCount++;
         stat.stringLength += strlen(v.to_string());
         break;
 
-    case gason2::number_tag:
+    case gason2::type::number:
         stat.numberCount++;
         break;
 
-    case gason2::bool_tag:
+    case gason2::type::boolean:
         if (v.to_bool())
             stat.trueCount++;
         else
             stat.falseCount++;
         break;
 
-    case gason2::null_tag:
+    case gason2::type::null:
         stat.nullCount++;
         break;
 

@@ -9,22 +9,22 @@ struct dump {
         char buf[32];
 
         switch (v.tag()) {
-        case number_tag:
+        case type::number:
             s.append(buf, snprintf(buf, sizeof(buf), "%.10g", v.to_number()));
             break;
 
-        case null_tag:
+        case type::null:
             s.append("null", 4);
             break;
 
-        case bool_tag:
+        case type::boolean:
             if (v.to_bool())
                 s.append("true", 4);
             else
                 s.append("false", 5);
             break;
 
-        case string_tag:
+        case type::string:
             s.push_back('"');
             for (const char *p = v.to_string(); *p;) {
                 char c = *p++;
@@ -57,7 +57,7 @@ struct dump {
             s.push_back('"');
             break;
 
-        case array_tag:
+        case type::array:
             if (v.size()) {
                 char comma = '[';
                 for (size_t i = 0, i_end = v.size(); i < i_end; ++i, comma = ',') {
@@ -70,7 +70,7 @@ struct dump {
             s.push_back(']');
             break;
 
-        case object_tag:
+        case type::object:
             if (v.size()) {
                 char comma = '{';
                 for (size_t i = 0, i_end = v.size(); i < i_end; i += 2, comma = ',') {
@@ -98,7 +98,7 @@ struct dump {
 
     static void prettify(vector<char> &s, view v, size_t depth = 0) {
         switch (v.tag()) {
-        case array_tag:
+        case type::array:
             if (v.size()) {
                 char comma = '[';
                 for (size_t i = 0, i_end = v.size(); i < i_end; ++i, comma = ',') {
@@ -113,7 +113,7 @@ struct dump {
             s.push_back(']');
             break;
 
-        case object_tag:
+        case type::object:
             if (v.size()) {
                 char comma = '{';
                 for (size_t i = 0, i_end = v.size(); i < i_end; i += 2, comma = ',') {
@@ -135,25 +135,6 @@ struct dump {
         }
     }
 
-    static const char *error_string(value_tag tag) {
-        static const char *err2str[] = {
-            "expecting string",
-            "expecting value",
-            "invalid literal name",
-            "invalid number",
-            "invalid string char",
-            "invalid string escape",
-            "invalid surrogate pair",
-            "missing colon",
-            "missing comma or bracket",
-            "second root",
-            "unexpected character",
-        };
-        if (tag > error_tag && tag - error_expecting_string < sizeof(err2str) / sizeof(err2str[0]))
-            return err2str[tag - error_expecting_string];
-        return "not an error";
-    }
-
     static int print_error(const char *filename, const char *json, const document &doc) {
         int lineno = 1;
         const char *left = json;
@@ -173,7 +154,22 @@ struct dump {
         if (right - left > 80)
             right = endptr + 80 - (endptr - left);
 
-        return fprintf(stderr, "%s:%d:%d: error: %s\n%.*s\n%*s\n", filename, lineno, column, error_string(doc.tag()), int(right - left), left, int(endptr - left), "^");
+        const char *str = str = "not an error";
+        switch (doc.error_code()) {
+        case error::expecting_string: str = "error expecting string"; break;
+        case error::expecting_value: str = "error expecting value"; break;
+        case error::invalid_literal_name: str = "error invalid literal name"; break;
+        case error::invalid_number: str = "error invalid number"; break;
+        case error::invalid_string_char: str = "error invalid string char"; break;
+        case error::invalid_string_escape: str = "error invalid string escape"; break;
+        case error::invalid_surrogate_pair: str = "error invalid surrogate pair"; break;
+        case error::missing_colon: str = "error missing colon"; break;
+        case error::missing_comma_or_bracket: str = "error missing comma or bracket"; break;
+        case error::second_root: str = "error second root"; break;
+        case error::unexpected_character: str = "error unexpected character"; break;
+        }
+
+        return fprintf(stderr, "%s:%d:%d: error: %s\n%.*s\n%*s\n", filename, lineno, column, str, int(right - left), left, int(endptr - left), "^");
     }
 };
 }
