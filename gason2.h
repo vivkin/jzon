@@ -178,26 +178,26 @@ union box {
 
 class view {
 protected:
-    const box *_data;
-    box _value;
+    const box *_stack;
+    box _data;
 
 public:
-    view(const box *data = nullptr, box v = type::null) : _data(data), _value(v) {}
+    view(const box *data = nullptr, box v = type::null) : _stack(data), _data(v) {}
 
-    type tag() const { return _value.is_nan() ? _value.tag.type : type::number; }
+    type tag() const { return _data.is_nan() ? _data.tag.type : type::number; }
 
-    bool is_number() const { return !_value.is_nan(); }
-    bool is_null() const { return _value.tag.type == type::null; }
-    bool is_bool() const { return _value.tag.type == type::boolean; }
-    bool is_string() const { return _value.tag.type == type::string; }
-    bool is_array() const { return _value.tag.type == type::array; }
-    bool is_object() const { return _value.tag.type == type::object; }
+    bool is_number() const { return !_data.is_nan(); }
+    bool is_null() const { return _data.tag.type == type::null; }
+    bool is_bool() const { return _data.tag.type == type::boolean; }
+    bool is_string() const { return _data.tag.type == type::string; }
+    bool is_array() const { return _data.tag.type == type::array; }
+    bool is_object() const { return _data.tag.type == type::object; }
 
-    double to_number() const { return is_number() ? _value.number : 0; }
-    bool to_bool() const { return is_bool() && _value.payload; }
-    const char *to_string() const { return is_string() ? _data[_value.payload].bytes : ""; }
-    size_t size() const { return (is_array() || is_object()) ? _data[_value.payload - 1].payload : 0; }
-    view operator[](size_t index) const { return index < size() ? view{_data, _data[_value.payload + index]} : view{}; }
+    double to_number() const { return is_number() ? _data.number : 0; }
+    bool to_bool() const { return is_bool() && _data.payload; }
+    const char *to_string() const { return is_string() ? _stack[_data.payload].bytes : ""; }
+    size_t size() const { return (is_array() || is_object()) ? _stack[_data.payload - 1].payload : 0; }
+    view operator[](size_t index) const { return index < size() ? view{_stack, _stack[_data.payload + index]} : view{}; }
     view operator[](const char *name) const {
         if (is_object())
             for (size_t i = 0, i_end = size(); i < i_end; i += 2)
@@ -211,14 +211,14 @@ struct parser {
     struct stream {
         const char *_s;
 
-        int skipws() {
-            while (*_s == '\x20' || *_s == '\x9' || *_s == '\xD' || *_s == '\xA')
-                ++_s;
-            return (int)(unsigned char)*_s;
-        }
-        int getch() { return (int)(unsigned char)*_s++; }
-        int peek() const { return (int)(unsigned char)*_s; }
         const char *c_str() const { return _s; }
+        int peek() const { return (int)(unsigned char)*_s; }
+        int getch() { return (int)(unsigned char)*_s++; }
+        int skipws() {
+            while (peek() == '\x20' || peek() == '\x9' || peek() == '\xD' || peek() == '\xA')
+                getch();
+            return peek();
+        }
     };
 
     static inline bool is_digit(int c) { return c >= '0' && c <= '9'; }
@@ -520,23 +520,23 @@ public:
         parser p;
         parser::stream s{json};
 
-        _value = p.parse_value(s);
+        _data = p.parse_value(s);
 
-        if (!_value.is_error() && !_value.is_token() && s.skipws())
-            _value = error::second_root;
+        if (!_data.is_error() && !_data.is_token() && s.skipws())
+            _data = error::second_root;
 
-        if (_value.is_error()) {
-            _value.payload = s.c_str() - json;
+        if (_data.is_error()) {
+            _data.payload = s.c_str() - json;
             return false;
         }
 
         _stack = static_cast<vector<box> &&>(p._stack);
-        _data = _stack.data();
+        view::_stack = _stack.data();
 
         return true;
     }
 
-    error error_code() const { return _value.tag.error; }
-    size_t error_offset() const { return _value.is_error() ? _value.payload : 0; }
+    error error_code() const { return _data.tag.error; }
+    size_t error_offset() const { return _data.is_error() ? _data.payload : 0; }
 };
 }
