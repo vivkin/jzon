@@ -307,12 +307,12 @@ struct parser {
         case '\x74':
             return '\t';
         case '\x75': {
-            static constexpr char hex2dec[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 10, 11, 12, 13, 14, 15};
-            unsigned int cp = 0;
+            int cp = 0;
             for (int i = 0; i < 4; ++i) {
-                unsigned int c = s.getch() - '0';
-                if (c < sizeof(hex2dec) && hex2dec[c] >= 0)
-                    cp = cp * 16 + hex2dec[c];
+                if (is_digit(s.peek()))
+                    cp = (cp * 16) + (s.getch() - '0');
+                else if ((s.peek() | 0x20) >= 'a' && ((s.peek() | 0x20) <= 'f'))
+                    cp = (cp * 16) + ((s.getch() | 0x20) - 'a' + 10);
                 else
                     return -1;
             }
