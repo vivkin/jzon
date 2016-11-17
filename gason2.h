@@ -176,13 +176,13 @@ union box {
     constexpr bool is_value() const { return !is_nan() || !(tag.bits & (error_flag | token_flag)); }
 };
 
-class view {
+class value {
 protected:
     const box *_stack;
     box _data;
 
 public:
-    view(const box *data = nullptr, box v = type::null) : _stack(data), _data(v) {}
+    value(const box *data = nullptr, box v = type::null) : _stack(data), _data(v) {}
 
     type tag() const { return _data.is_nan() ? _data.tag.type : type::number; }
 
@@ -197,8 +197,8 @@ public:
     bool to_bool() const { return is_bool() && _data.payload; }
     const char *to_string() const { return is_string() ? _stack[_data.payload].bytes : ""; }
     size_t size() const { return (is_array() || is_object()) ? _stack[_data.payload - 1].payload : 0; }
-    view operator[](size_t index) const { return index < size() ? view{_stack, _stack[_data.payload + index]} : view{}; }
-    view operator[](const char *name) const {
+    value operator[](size_t index) const { return index < size() ? value{_stack, _stack[_data.payload + index]} : value{}; }
+    value operator[](const char *name) const {
         if (is_object())
             for (size_t i = 0, i_end = size(); i < i_end; i += 2)
                 if (!strcmp(operator[](i).to_string(), name))
@@ -512,7 +512,7 @@ struct parser {
     }
 };
 
-class document : public view {
+class document : public value {
     vector<box> _stack;
 
 public:
@@ -531,7 +531,7 @@ public:
         }
 
         _stack = static_cast<vector<box> &&>(p._stack);
-        view::_stack = _stack.data();
+        value::_stack = _stack.data();
 
         return true;
     }
