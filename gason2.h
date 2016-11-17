@@ -207,20 +207,20 @@ public:
     }
 };
 
+struct stream {
+    const char *_s;
+
+    const char *c_str() const { return _s; }
+    int peek() const { return static_cast<unsigned char>(*_s); }
+    int getch() { return static_cast<unsigned char>(*_s++); }
+    int skipws() {
+        while (peek() == '\x20' || peek() == '\x9' || peek() == '\xD' || peek() == '\xA')
+            getch();
+        return peek();
+    }
+};
+
 struct parser {
-    struct stream {
-        const char *_s;
-
-        const char *c_str() const { return _s; }
-        int peek() const { return (int)(unsigned char)*_s; }
-        int getch() { return (int)(unsigned char)*_s++; }
-        int skipws() {
-            while (peek() == '\x20' || peek() == '\x9' || peek() == '\xD' || peek() == '\xA')
-                getch();
-            return peek();
-        }
-    };
-
     static inline bool is_digit(int c) { return c >= '0' && c <= '9'; }
 
     static box parse_number(stream &s) {
@@ -517,9 +517,8 @@ class document : public value {
 
 public:
     bool parse(const char *json) {
+        stream s{json};
         parser p;
-        parser::stream s{json};
-
         _data = p.parse_value(s);
 
         if (!_data.is_error() && !_data.is_token() && s.skipws())
