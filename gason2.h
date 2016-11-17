@@ -171,9 +171,9 @@ union box {
     constexpr box(type t, size_t x = 0) : payload(x), tag({static_cast<unsigned int>(t)}) {}
 
     constexpr bool is_nan() const { return tag.bits > nan_mask; }
+    constexpr bool is_data() const { return !is_nan() || !(tag.bits & (error_flag | token_flag)); }
     constexpr bool is_error() const { return is_nan() && (tag.bits & error_flag); }
     constexpr bool is_token() const { return is_nan() && (tag.bits & token_flag); }
-    constexpr bool is_value() const { return !is_nan() || !(tag.bits & (error_flag | token_flag)); }
 };
 
 class value {
@@ -184,7 +184,7 @@ protected:
 public:
     value(const box *data = nullptr, box v = type::null) : _stack(data), _data(v) {}
 
-    type tag() const { return _data.is_nan() ? _data.tag.type : type::number; }
+    gason2::type type() const { return _data.is_nan() ? _data.tag.type : type::number; }
 
     bool is_number() const { return !_data.is_nan(); }
     bool is_null() const { return _data.tag.type == type::null; }
@@ -431,7 +431,7 @@ struct parser {
 
         box tok = parse_value(s);
 
-        if (tok.is_value()) {
+        if (tok.is_data()) {
             _backlog.push_back(tok);
             for (;;) {
                 tok = parse_value(s);
@@ -471,7 +471,7 @@ struct parser {
                 return error::missing_colon;
 
             tok = parse_value(s);
-            if (!tok.is_value())
+            if (!tok.is_data())
                 return tok.is_error() ? tok : error::expecting_value;
             _backlog.push_back(tok);
 

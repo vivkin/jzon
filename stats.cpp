@@ -18,7 +18,7 @@ struct Stat {
 };
 
 static void GenStat(Stat &stat, gason2::value v) {
-    switch (v.tag()) {
+    switch (v.type()) {
     case gason2::type::array:
         for (size_t i = 0; i < v.size(); ++i)
             GenStat(stat, v[i]);

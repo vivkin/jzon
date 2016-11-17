@@ -8,7 +8,7 @@ struct dump {
     static void stringify(vector<char> &s, value v) {
         char buf[32];
 
-        switch (v.tag()) {
+        switch (v.type()) {
         case type::number:
             s.append(buf, snprintf(buf, sizeof(buf), "%.10g", v.to_number()));
             break;
@@ -97,7 +97,7 @@ struct dump {
     }
 
     static void prettify(vector<char> &s, value v, size_t depth = 0) {
-        switch (v.tag()) {
+        switch (v.type()) {
         case type::array:
             if (v.size()) {
                 char comma = '[';
