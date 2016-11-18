@@ -13,7 +13,7 @@ void pbox(gason2::box v) {
     printf("%2d %6d %8x %10u %13g\n", v.number == v.number, v.is_nan(), v.tag.bits, v.payload, v.number);
 }
 
-TEST_CASE("box") {
+TEST_CASE("nan-boxing") {
     printf("%2s %6s %4s %15s %13s\n", "==", "is_nan", "tag", "payload", "number");
 
     double numbers[] = {0.0, 1.0, 1.0 / 3.0, 5.45, 7.62, 1e40, DBL_MIN, DBL_EPSILON, DBL_MAX, INFINITY, NAN};
@@ -33,6 +33,20 @@ TEST_CASE("box") {
     pbox({gason2::type::string, 0xBADCAB1E});
     pbox({gason2::type::array, ~1ul});
     pbox({gason2::type::object, 0xFFFFFFFFul});
+}
+
+TEST_CASE("obvious") {
+    gason2::document doc;
+
+    CHECK_FALSE(doc.parse(""));
+    CHECK(doc.error_code() == gason2::error::unexpected_character);
+
+    CHECK(doc.parse(u8R"json(1234567890)json"));
+    CHECK(doc.is_number());
+    CHECK(doc.to_number() == 1234567890);
+
+    CHECK_FALSE(doc.parse(u8R"json({42: "member name must be string")json"));
+    CHECK(doc.error_code() == gason2::error::expecting_string);
 }
 
 TEST_SUITE_END();
