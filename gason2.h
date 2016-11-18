@@ -426,89 +426,58 @@ struct parser {
         }
     }
 
+    box parse_and_backlog(stream &s) {
+        box v = parse_value(s);
+        if (v.is_data())
+            _backlog.push_back(v);
+        return v;
+    }
+
     box parse_array(stream &s) {
         size_t frame = _backlog.size();
-
-        box tok = parse_value(s);
-
-        if (tok.is_data()) {
-            _backlog.push_back(tok);
-            for (;;) {
-                tok = parse_value(s);
-                if (tok.tag.token != token::value_separator)
+        box v;
+        if ((v = parse_and_backlog(s)).is_data()) {
+            while ((v = parse_and_backlog(s)).tag.token == token::value_separator) {
+                if (!(v = parse_and_backlog(s)).is_data()) {
+                    if (!v.is_error())
+                        v = error::expecting_value;
                     break;
-
-                tok = parse_value(s);
-                if (tok.is_token())
-                    return error::expecting_value;
-                if (tok.is_error())
-                    return tok;
-                _backlog.push_back(tok);
+                }
             }
         }
-
-        if (tok.tag.token == token::end_array) {
+        if (v.tag.token == token::end_array) {
             size_t size = _backlog.size() - frame;
             _stack.push_back({type::array, size});
             _stack.append(_backlog.end() - size, size);
             _backlog.resize(_backlog.size() - size);
             return {type::array, _stack.size() - size};
         }
-
-        return tok.is_error() ? tok : error::missing_comma_or_bracket;
+        return v.is_error() ? v : error::missing_comma_or_bracket;
     }
 
     box parse_object(stream &s) {
         size_t frame = _backlog.size();
-
-        box tok = parse_value(s);
-
-        if (tok.tag.type == type::string) {
-            _backlog.push_back(tok);
-
-            tok = parse_value(s);
-            if (tok.tag.token != token::name_separator)
-                return error::missing_colon;
-
-            tok = parse_value(s);
-            if (!tok.is_data())
-                return tok.is_error() ? tok : error::expecting_value;
-            _backlog.push_back(tok);
-
-            for (;;) {
-                tok = parse_value(s);
-                if (tok.tag.token != token::value_separator)
+        box v;
+        if ((v = parse_and_backlog(s)).tag.type == type::string &&
+            (v = parse_and_backlog(s)).tag.token == token::name_separator &&
+            (v = parse_and_backlog(s)).is_data()) {
+            while ((v = parse_and_backlog(s)).tag.token == token::value_separator)
+                if (!((v = parse_and_backlog(s)).tag.type == type::string &&
+                      (v = parse_and_backlog(s)).tag.token == token::name_separator &&
+                      (v = parse_and_backlog(s)).is_data())) {
+                    if (!v.is_error())
+                        v = error::expecting_value;
                     break;
-
-                tok = parse_value(s);
-                if (tok.is_error())
-                    return tok;
-                if (tok.tag.type != type::string)
-                    return error::expecting_string;
-                _backlog.push_back(tok);
-
-                tok = parse_value(s);
-                if (tok.tag.token != token::name_separator)
-                    return tok.is_error() ? tok : error::missing_colon;
-
-                tok = parse_value(s);
-                if (tok.is_token())
-                    return error::expecting_value;
-                if (tok.is_error())
-                    return tok;
-                _backlog.push_back(tok);
-            }
+                }
         }
-
-        if (tok.tag.token == token::end_object) {
+        if (v.tag.token == token::end_object) {
             size_t size = _backlog.size() - frame;
             _stack.push_back({type::object, size});
             _stack.append(_backlog.end() - size, size);
             _backlog.resize(_backlog.size() - size);
             return {type::object, _stack.size() - size};
         }
-
-        return tok.is_error() ? tok : error::missing_comma_or_bracket;
+        return v.is_error() ? v : error::missing_comma_or_bracket;
     }
 };
 
