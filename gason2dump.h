@@ -154,18 +154,18 @@ struct dump {
         if (right - left > 80)
             right = endptr + 80 - (endptr - left);
 
-        const char *str = "not an error";
+        const char *str = "";
         switch (doc.error_code()) {
-        case error::expecting_string: str = "error expecting string"; break;
-        case error::expecting_value: str = "error expecting value"; break;
-        case error::invalid_literal_name: str = "error invalid literal name"; break;
-        case error::invalid_number: str = "error invalid number"; break;
-        case error::invalid_string_char: str = "error invalid string char"; break;
-        case error::invalid_string_escape: str = "error invalid string escape"; break;
-        case error::invalid_surrogate_pair: str = "error invalid surrogate pair"; break;
-        case error::missing_colon: str = "error missing colon"; break;
-        case error::missing_comma_or_bracket: str = "error missing comma or bracket"; break;
-        case error::unexpected_character: str = "error unexpected character"; break;
+        case error::expecting_string: str = "expecting string"; break;
+        case error::expecting_value: str = "expecting value"; break;
+        case error::invalid_literal_name: str = "invalid literal name"; break;
+        case error::invalid_number: str = "invalid number"; break;
+        case error::invalid_string_char: str = "invalid string char"; break;
+        case error::invalid_string_escape: str = "invalid string escape"; break;
+        case error::invalid_surrogate_pair: str = "invalid surrogate pair"; break;
+        case error::missing_colon: str = "missing colon"; break;
+        case error::missing_comma_or_bracket: str = "missing comma or bracket"; break;
+        case error::unexpected_character: str = "unexpected character"; break;
         }
 
         return fprintf(stderr, "%s:%d:%d: error: %s\n%.*s\n%*s\n", filename, lineno, column, str, int(right - left), left, int(endptr - left), "^");
