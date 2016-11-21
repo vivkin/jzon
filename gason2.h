@@ -119,7 +119,6 @@ public:
 
 constexpr unsigned int nan_mask = 0xFFF00000;
 constexpr unsigned int error_flag = 1 << 16;
-constexpr unsigned int token_flag = 2 << 16;
 
 enum class error : unsigned int {
     expecting_string = nan_mask | error_flag,
@@ -133,13 +132,6 @@ enum class error : unsigned int {
     missing_comma_or_bracket,
     second_root,
     unexpected_character,
-};
-
-enum class token : unsigned int {
-    end_array = nan_mask | token_flag,
-    end_object,
-    name_separator,
-    value_separator,
 };
 
 enum class type : unsigned int {
@@ -158,7 +150,6 @@ union box {
         unsigned int payload;
         union {
             unsigned int bits;
-            gason2::token token;
             gason2::error error;
             gason2::type type;
         } tag;
@@ -167,13 +158,11 @@ union box {
     box() = default;
     constexpr box(double x) : number(x) {}
     constexpr box(error t) : tag({static_cast<unsigned int>(t)}) {}
-    constexpr box(token t) : tag({static_cast<unsigned int>(t)}) {}
     constexpr box(type t, size_t x = 0) : payload(x), tag({static_cast<unsigned int>(t)}) {}
 
     constexpr bool is_nan() const { return tag.bits > nan_mask; }
-    constexpr bool is_data() const { return !is_nan() || !(tag.bits & (error_flag | token_flag)); }
     constexpr bool is_error() const { return is_nan() && (tag.bits & error_flag); }
-    constexpr bool is_token() const { return is_nan() && (tag.bits & token_flag); }
+    constexpr bool is_data() const { return !is_nan() || !is_error(); }
 };
 
 class value {
@@ -490,7 +479,7 @@ public:
         parser p;
         _data = p.parse_value(s);
 
-        if (!_data.is_error() && !_data.is_token() && s.skipws())
+        if (!_data.is_error() && s.skipws())
             _data = error::second_root;
 
         if (_data.is_error()) {

@@ -24,8 +24,6 @@ TEST_CASE("boxing") {
     }
 
     pbox(gason2::error::expecting_value);
-    pbox(gason2::token::value_separator);
-
     pbox({gason2::type::null, 0});
     pbox({gason2::type::boolean, false});
     pbox({gason2::type::boolean, true});
