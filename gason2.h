@@ -448,8 +448,8 @@ struct parser {
         if (v.tag.token == token::end_array) {
             size_t size = _backlog.size() - frame;
             _stack.push_back({type::array, size});
-            _stack.append(_backlog.end() - size, size);
-            _backlog.resize(_backlog.size() - size);
+            _stack.append(_backlog.begin() + frame, size);
+            _backlog.resize(frame);
             return {type::array, _stack.size() - size};
         }
         return v.is_error() ? v : error::missing_comma_or_bracket;
@@ -473,8 +473,8 @@ struct parser {
         if (v.tag.token == token::end_object) {
             size_t size = _backlog.size() - frame;
             _stack.push_back({type::object, size});
-            _stack.append(_backlog.end() - size, size);
-            _backlog.resize(_backlog.size() - size);
+            _stack.append(_backlog.begin() + frame, size);
+            _backlog.resize(frame);
             return {type::object, _stack.size() - size};
         }
         return v.is_error() ? v : error::missing_comma_or_bracket;
