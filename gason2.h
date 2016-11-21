@@ -118,10 +118,10 @@ public:
 };
 
 constexpr unsigned int nan_mask = 0xFFF00000;
-constexpr unsigned int error_flag = 1 << 16;
+constexpr unsigned int err_mask = nan_mask | (1 << 16);
 
 enum class error : unsigned int {
-    expecting_string = nan_mask | error_flag,
+    expecting_string = err_mask,
     expecting_value,
     invalid_literal_name,
     invalid_number,
@@ -161,8 +161,7 @@ union box {
     constexpr box(type t, size_t x = 0) : payload(x), tag({static_cast<unsigned int>(t)}) {}
 
     constexpr bool is_nan() const { return tag.bits > nan_mask; }
-    constexpr bool is_error() const { return is_nan() && (tag.bits & error_flag); }
-    constexpr bool is_data() const { return !is_nan() || !is_error(); }
+    constexpr bool is_error() const { return tag.bits >= err_mask; }
 };
 
 class value {
@@ -348,7 +347,7 @@ struct parser {
             size_t frame = _backlog.size();
             box v;
 element:
-            if ((v = parse_value(s)).is_data()) {
+            if (!(v = parse_value(s)).is_error()) {
                 _backlog.push_back(v);
                 if (s.skipws() == ',') {
                     s.getch();
@@ -385,7 +384,7 @@ member:
                 _backlog.push_back(v);
                 if (s.skipws() == ':') {
                     s.getch();
-                    if ((v = parse_value(s)).is_data()) {
+                    if (!(v = parse_value(s)).is_error()) {
                         _backlog.push_back(v);
                         if (s.skipws() == ',') {
                             s.getch();
