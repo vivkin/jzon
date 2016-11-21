@@ -311,14 +311,63 @@ struct parser {
         }
     }
 
+    static box parse_string(stream &s, vector<box> &v) {
+        size_t offset = v.size();
+        size_t length = 0;
+        s.getch();
+        for (;;) {
+            v.resize(v.size() + 8);
+            char *span = v[offset].bytes;
+            for (size_t size_end = length + sizeof(box) * 7; length < size_end; ++length) {
+                switch (span[length] = s.getch()) {
+                case '"':
+                    span[length] = '\0';
+                    v.resize(offset + (length + 8) / 8);
+                    return {type::string, offset};
+                case '\\': {
+                    int cp = unescape(s);
+                    if (cp >= 0xD800 && cp <= 0xDBFF) {
+                        if (s.getch() != '\\')
+                            return error::invalid_surrogate_pair;
+                        int low = unescape(s);
+                        if (low < 0xDC00 && low > 0xDFFF)
+                            return error::invalid_surrogate_pair;
+                        cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
+                    }
+                    if (cp < 0)
+                        return error::invalid_string_escape;
+                    else if (cp < 0x80) {
+                        span[length] = (char)cp;
+                    } else if (cp < 0x800) {
+                        span[length] = 0xC0 | ((char)(cp >> 6));
+                        span[++length] = 0x80 | (cp & 0x3F);
+                    } else if (cp < 0xFFFF) {
+                        span[length] = 0xE0 | ((char)(cp >> 12));
+                        span[++length] = 0x80 | ((cp >> 6) & 0x3F);
+                        span[++length] = 0x80 | (cp & 0x3F);
+                    } else {
+                        span[length] = 0xF0 | ((char)(cp >> 18));
+                        span[++length] = 0x80 | ((cp >> 12) & 0x3F);
+                        span[++length] = 0x80 | ((cp >> 6) & 0x3F);
+                        span[++length] = 0x80 | (cp & 0x3F);
+                    }
+                    continue;
+                }
+                default:
+                    if ((unsigned int)span[length] < ' ')
+                        return error::invalid_string_char;
+                }
+            }
+        }
+    }
+
     vector<box> _backlog;
     vector<box> _stack;
 
     box parse_value(stream &s) {
         switch (s.skipws()) {
         case '"':
-            s.getch();
-            return parse_string(s);
+            return parse_string(s, _stack);
         case 'f':
             s.getch();
             if (s.getch() == 'a' && s.getch() == 'l' && s.getch() == 's' && s.getch() == 'e')
@@ -420,55 +469,6 @@ member:
             break;
         }
         return error::unexpected_character;
-    }
-
-    box parse_string(stream &s) {
-        size_t offset = _stack.size();
-        size_t length = 0;
-        for (;;) {
-            _stack.resize(_stack.size() + 8);
-            char *span = _stack[offset].bytes;
-            for (size_t size_end = length + sizeof(box) * 7; length < size_end; ++length) {
-                switch (span[length] = s.getch()) {
-                case '"':
-                    span[length] = '\0';
-                    _stack.resize(offset + (length + 8) / 8);
-                    return {type::string, offset};
-                case '\\': {
-                    int cp = unescape(s);
-                    if (cp >= 0xD800 && cp <= 0xDBFF) {
-                        if (s.getch() != '\\')
-                            return error::invalid_surrogate_pair;
-                        int low = unescape(s);
-                        if (low < 0xDC00 && low > 0xDFFF)
-                            return error::invalid_surrogate_pair;
-                        cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
-                    }
-                    if (cp < 0)
-                        return error::invalid_string_escape;
-                    else if (cp < 0x80) {
-                        span[length] = (char)cp;
-                    } else if (cp < 0x800) {
-                        span[length] = 0xC0 | ((char)(cp >> 6));
-                        span[++length] = 0x80 | (cp & 0x3F);
-                    } else if (cp < 0xFFFF) {
-                        span[length] = 0xE0 | ((char)(cp >> 12));
-                        span[++length] = 0x80 | ((cp >> 6) & 0x3F);
-                        span[++length] = 0x80 | (cp & 0x3F);
-                    } else {
-                        span[length] = 0xF0 | ((char)(cp >> 18));
-                        span[++length] = 0x80 | ((cp >> 12) & 0x3F);
-                        span[++length] = 0x80 | ((cp >> 6) & 0x3F);
-                        span[++length] = 0x80 | (cp & 0x3F);
-                    }
-                    continue;
-                }
-                default:
-                    if ((unsigned int)span[length] < ' ')
-                        return error::invalid_string_char;
-                }
-            }
-        }
     }
 };
 
