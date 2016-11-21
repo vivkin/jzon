@@ -380,22 +380,25 @@ element:
             size_t frame = _backlog.size();
             box v;
 member:
-            if ((v = parse_value(s)).tag.type == type::string) {
-                _backlog.push_back(v);
-                if (s.skipws() == ':') {
-                    s.getch();
-                    if (!(v = parse_value(s)).is_error()) {
-                        _backlog.push_back(v);
-                        if (s.skipws() == ',') {
-                            s.getch();
-                            goto member;
-                        }
-                    }
-                }
-            }
+            if ((v = parse_value(s)).tag.type != type::string)
+                return v.is_error() ? v : error::expecting_string;
 
-            if (v.is_error())
+            _backlog.push_back(v);
+
+            if (s.skipws() != ':')
+                return error::missing_colon;
+
+            s.getch();
+
+            if ((v = parse_value(s)).is_error())
                 return v;
+
+            _backlog.push_back(v);
+
+            if (s.skipws() == ',') {
+                s.getch();
+                goto member;
+            }
 
             if (s.getch() != '}')
                 return error::missing_comma_or_bracket;
