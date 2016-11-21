@@ -165,7 +165,6 @@ struct dump {
         case error::invalid_surrogate_pair: str = "error invalid surrogate pair"; break;
         case error::missing_colon: str = "error missing colon"; break;
         case error::missing_comma_or_bracket: str = "error missing comma or bracket"; break;
-        case error::second_root: str = "error second root"; break;
         case error::unexpected_character: str = "error unexpected character"; break;
         }
 

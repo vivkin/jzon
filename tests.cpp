@@ -37,7 +37,7 @@ TEST_CASE("obvious") {
     gason2::document doc;
 
     CHECK_FALSE(doc.parse(""));
-    CHECK(doc.error_code() == gason2::error::unexpected_character);
+    CHECK(doc.error_code() == gason2::error::expecting_value);
 
     CHECK(doc.parse(u8R"json(1234567890)json"));
     CHECK(doc.is_number());

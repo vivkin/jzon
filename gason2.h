@@ -130,7 +130,6 @@ enum class error : unsigned int {
     invalid_surrogate_pair,
     missing_colon,
     missing_comma_or_bracket,
-    second_root,
     unexpected_character,
 };
 
@@ -314,7 +313,6 @@ struct parser {
     static box parse_string(stream &s, vector<box> &v) {
         size_t offset = v.size();
         size_t length = 0;
-        s.getch();
         for (;;) {
             v.resize(v.size() + 8);
             char *span = v[offset].bytes;
@@ -367,6 +365,7 @@ struct parser {
     box parse_value(stream &s) {
         switch (s.skipws()) {
         case '"':
+            s.getch();
             return parse_string(s, _stack);
         case 'f':
             s.getch();
@@ -385,27 +384,18 @@ struct parser {
             return error::invalid_literal_name;
         case '[': {
             s.getch();
-
-            // empty
-            if (s.skipws() == ']') {
-                s.getch();
-                _stack.push_back({type::array, 0});
-                return {type::array, _stack.size()};
-            }
-
             size_t frame = _backlog.size();
-            box v;
-element:
-            if (!(v = parse_value(s)).is_error()) {
-                _backlog.push_back(v);
+            if (s.skipws() != ']') {
+            element:
+                _backlog.push_back(parse_value(s));
+                if (_backlog.back().is_error())
+                    return _backlog.back();
+
                 if (s.skipws() == ',') {
                     s.getch();
                     goto element;
                 }
             }
-
-            if (v.is_error())
-                return v;
 
             if (s.getch() != ']')
                 return error::missing_comma_or_bracket;
@@ -418,35 +408,28 @@ element:
         }
         case '{': {
             s.getch();
-
-            // empty
-            if (s.skipws() == '}') {
-                s.getch();
-                _stack.push_back({type::object, 0});
-                return {type::object, _stack.size()};
-            }
-
             size_t frame = _backlog.size();
-            box v;
-member:
-            if ((v = parse_value(s)).tag.type != type::string)
-                return v.is_error() ? v : error::expecting_string;
-
-            _backlog.push_back(v);
-
-            if (s.skipws() != ':')
-                return error::missing_colon;
-
-            s.getch();
-
-            if ((v = parse_value(s)).is_error())
-                return v;
-
-            _backlog.push_back(v);
-
-            if (s.skipws() == ',') {
+            if (s.skipws() != '}') {
+            member:
+                if (s.peek() != '"')
+                    return error::expecting_string;
                 s.getch();
-                goto member;
+                _backlog.push_back(parse_string(s, _stack));
+                if (_backlog.back().is_error())
+                    return _backlog.back();
+
+                if (s.skipws() != ':')
+                    return error::missing_colon;
+                s.getch();
+                _backlog.push_back(parse_value(s));
+                if (_backlog.back().is_error())
+                    return _backlog.back();
+
+                if (s.skipws() == ',') {
+                    s.getch();
+                    s.skipws();
+                    goto member;
+                }
             }
 
             if (s.getch() != '}')
@@ -468,7 +451,7 @@ member:
                 return parse_number(s);
             break;
         }
-        return error::unexpected_character;
+        return error::expecting_value;
     }
 };
 
@@ -482,7 +465,7 @@ public:
         _data = p.parse_value(s);
 
         if (!_data.is_error() && s.skipws())
-            _data = error::second_root;
+            _data = error::unexpected_character;
 
         if (_data.is_error()) {
             _data.payload = s.c_str() - json;
