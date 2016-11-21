@@ -331,14 +331,6 @@ struct parser {
         case '"':
             s.getch();
             return parse_string(s);
-#if 0
-        case ',':
-            s.getch();
-            return token::value_separator;
-        case ':':
-            s.getch();
-            return token::name_separator;
-#endif
         case 'f':
             s.getch();
             if (s.getch() == 'a' && s.getch() == 'l' && s.getch() == 's' && s.getch() == 'e')
@@ -387,11 +379,6 @@ element:
             _backlog.resize(frame);
             return {type::array, _stack.size() - size};
         }
-#if 0
-        case ']':
-            s.getch();
-            return token::end_array;
-#endif
         case '{': {
             s.getch();
 
@@ -431,11 +418,6 @@ member:
             _backlog.resize(frame);
             return {type::object, _stack.size() - size};
         }
-#if 0
-        case '}':
-            s.getch();
-            return token::end_object;
-#endif
         case '-':
             s.getch();
             if (is_digit(s.peek()))
@@ -496,60 +478,6 @@ member:
                 }
             }
         }
-    }
-
-    box parse_and_backlog(stream &s) {
-        box v = parse_value(s);
-        if (v.is_data())
-            _backlog.push_back(v);
-        return v;
-    }
-
-    box parse_array(stream &s) {
-        size_t frame = _backlog.size();
-        box v;
-        if ((v = parse_and_backlog(s)).is_data()) {
-            while ((v = parse_and_backlog(s)).tag.token == token::value_separator) {
-                if (!(v = parse_and_backlog(s)).is_data()) {
-                    if (!v.is_error())
-                        v = error::expecting_value;
-                    break;
-                }
-            }
-        }
-        if (v.tag.token == token::end_array) {
-            size_t size = _backlog.size() - frame;
-            _stack.push_back({type::array, size});
-            _stack.append(_backlog.begin() + frame, size);
-            _backlog.resize(frame);
-            return {type::array, _stack.size() - size};
-        }
-        return v.is_error() ? v : error::missing_comma_or_bracket;
-    }
-
-    box parse_object(stream &s) {
-        size_t frame = _backlog.size();
-        box v;
-        if ((v = parse_and_backlog(s)).tag.type == type::string &&
-            (v = parse_and_backlog(s)).tag.token == token::name_separator &&
-            (v = parse_and_backlog(s)).is_data()) {
-            while ((v = parse_and_backlog(s)).tag.token == token::value_separator)
-                if (!((v = parse_and_backlog(s)).tag.type == type::string &&
-                      (v = parse_and_backlog(s)).tag.token == token::name_separator &&
-                      (v = parse_and_backlog(s)).is_data())) {
-                    if (!v.is_error())
-                        v = error::expecting_value;
-                    break;
-                }
-        }
-        if (v.tag.token == token::end_object) {
-            size_t size = _backlog.size() - frame;
-            _stack.push_back({type::object, size});
-            _stack.append(_backlog.begin() + frame, size);
-            _backlog.resize(frame);
-            return {type::object, _stack.size() - size};
-        }
-        return v.is_error() ? v : error::missing_comma_or_bracket;
     }
 };
 
