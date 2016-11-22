@@ -285,17 +285,13 @@ struct parser {
     }
 
     static box parse_string(stream &s, vector<box> &v) {
-        size_t offset = v.size();
-        size_t n = 0;
+        for (size_t length = 0, offset = v.size();;) {
+            v.resize(v.size() + 4);
 
-        for (;;) {
-            v.resize(v.size() + (32 / sizeof(box)));
+            char *first = (v.begin() + offset)->bytes + length;
+            char *last = v.end()->bytes - 5;
 
-            char *begin = v.begin()->bytes + offset * sizeof(box);
-            char *it = begin + n;
-            char *end = v.end()->bytes - 5;
-
-            while (it < end) {
+            while (first < last) {
                 int ch = s.getch();
 
                 if (ch < ' ') {
@@ -303,9 +299,9 @@ struct parser {
                 }
 
                 if (ch == '"') {
-                    *it++ = '\0';
-                    n = it - begin;
-                    v.resize(offset + ((n + sizeof(box)) / sizeof(box)));
+                    *first++ = '\0';
+                    length = first - (v.begin() + offset)->bytes;
+                    v.resize(offset + ((length + sizeof(box)) / sizeof(box)));
                     return {type::string, offset};
                 }
 
@@ -323,8 +319,10 @@ struct parser {
                     // clang-format on
                     case '\x75': {
                         int cp = parse_hex(s);
+
                         if (cp < 0)
                             return error::invalid_string_escape;
+
                         if (cp >= 0xD800 && cp <= 0xDBFF) {
                             if (s.getch() != '\\' || s.getch() != '\x75')
                                 return error::invalid_surrogate_pair;
@@ -333,20 +331,21 @@ struct parser {
                                 return error::invalid_surrogate_pair;
                             cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
                         }
+
                         if (cp < 0x80) {
-                            *it++ = (char)cp;
+                            *first++ = (char)cp;
                         } else if (cp < 0x800) {
-                            *it++ = 0xC0 | ((char)(cp >> 6));
-                            *it++ = 0x80 | (cp & 0x3F);
+                            *first++ = 0xC0 | ((char)(cp >> 6));
+                            *first++ = 0x80 | (cp & 0x3F);
                         } else if (cp < 0x10000) {
-                            *it++ = 0xE0 | ((char)(cp >> 12));
-                            *it++ = 0x80 | ((cp >> 6) & 0x3F);
-                            *it++ = 0x80 | (cp & 0x3F);
+                            *first++ = 0xE0 | ((char)(cp >> 12));
+                            *first++ = 0x80 | ((cp >> 6) & 0x3F);
+                            *first++ = 0x80 | (cp & 0x3F);
                         } else {
-                            *it++ = 0xF0 | ((char)(cp >> 18));
-                            *it++ = 0x80 | ((cp >> 12) & 0x3F);
-                            *it++ = 0x80 | ((cp >> 6) & 0x3F);
-                            *it++ = 0x80 | (cp & 0x3F);
+                            *first++ = 0xF0 | ((char)(cp >> 18));
+                            *first++ = 0x80 | ((cp >> 12) & 0x3F);
+                            *first++ = 0x80 | ((cp >> 6) & 0x3F);
+                            *first++ = 0x80 | (cp & 0x3F);
                         }
                         continue;
                     }
@@ -355,9 +354,10 @@ struct parser {
                     }
                 }
 
-                *it++ = ch;
+                *first++ = ch;
             }
-            n = it - begin;
+
+            length = first - (v.begin() + offset)->bytes;
         }
     }
 
