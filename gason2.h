@@ -271,39 +271,17 @@ struct parser {
         return significand;
     }
 
-    static int unescape(stream &s) {
-        switch (s.getch()) {
-        case '\x22':
-            return '"';
-        case '\x2F':
-            return '/';
-        case '\x5C':
-            return '\\';
-        case '\x62':
-            return '\b';
-        case '\x66':
-            return '\f';
-        case '\x6E':
-            return '\n';
-        case '\x72':
-            return '\r';
-        case '\x74':
-            return '\t';
-        case '\x75': {
-            int cp = 0;
-            for (int i = 0; i < 4; ++i) {
-                if (is_digit(s.peek()))
-                    cp = (cp * 16) + (s.getch() - '0');
-                else if ((s.peek() | 0x20) >= 'a' && ((s.peek() | 0x20) <= 'f'))
-                    cp = (cp * 16) + ((s.getch() | 0x20) - 'a' + 10);
-                else
-                    return -1;
-            }
-            return cp;
+    static int parse_hex(stream &s) {
+        int cp = 0;
+        for (int i = 0; i < 4; ++i) {
+            if (is_digit(s.peek()))
+                cp = (cp * 16) + (s.getch() - '0');
+            else if ((s.peek() | 0x20) >= 'a' && (s.peek() | 0x20) <= 'f')
+                cp = (cp * 16) + ((s.getch() | 0x20) - 'a' + 10);
+            else
+                return -1;
         }
-        default:
-            return -1;
-        }
+        return cp;
     }
 
     static box parse_string(stream &s, vector<box> &v) {
@@ -312,44 +290,67 @@ struct parser {
         for (;;) {
             v.resize(v.size() + 8);
             char *span = v[offset].bytes;
-            for (size_t size_end = length + sizeof(box) * 7; length < size_end; ++length) {
-                switch (span[length] = s.getch()) {
-                case '"':
+
+            for (size_t size_end = length + sizeof(box) * 7; length < size_end;) {
+                int ch = s.getch();
+
+                if (ch < ' ') {
+                    return error::invalid_string_char;
+                }
+
+                if (ch == '"') {
                     span[length] = '\0';
                     v.resize(offset + (length + 8) / 8);
                     return {type::string, offset};
-                case '\\': {
-                    int cp = unescape(s);
-                    if (cp >= 0xD800 && cp <= 0xDBFF) {
-                        if (s.getch() != '\\')
-                            return error::invalid_surrogate_pair;
-                        int low = unescape(s);
-                        if (low < 0xDC00 && low > 0xDFFF)
-                            return error::invalid_surrogate_pair;
-                        cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
-                    }
-                    if (cp < 0)
-                        return error::invalid_string_escape;
-                    else if (cp < 0x80) {
-                        span[length] = (char)cp;
-                    } else if (cp < 0x800) {
-                        span[length] = 0xC0 | ((char)(cp >> 6));
-                        span[++length] = 0x80 | (cp & 0x3F);
-                    } else if (cp < 0xFFFF) {
-                        span[length] = 0xE0 | ((char)(cp >> 12));
-                        span[++length] = 0x80 | ((cp >> 6) & 0x3F);
-                        span[++length] = 0x80 | (cp & 0x3F);
-                    } else {
-                        span[length] = 0xF0 | ((char)(cp >> 18));
-                        span[++length] = 0x80 | ((cp >> 12) & 0x3F);
-                        span[++length] = 0x80 | ((cp >> 6) & 0x3F);
-                        span[++length] = 0x80 | (cp & 0x3F);
-                    }
-                    continue;
                 }
-                default:
-                    if ((unsigned int)span[length] < ' ')
-                        return error::invalid_string_char;
+
+                if (ch != '\\')
+                    span[length++] = ch;
+
+                if (ch == '\\') {
+                    switch (s.getch()) {
+                    // clang-format off
+                    case '\x22': span[length++] = '"'; break;
+                    case '\x2F': span[length++] = '/'; break;
+                    case '\x5C': span[length++] = '\\'; break;
+                    case '\x62': span[length++] = '\b'; break;
+                    case '\x66': span[length++] = '\f'; break;
+                    case '\x6E': span[length++] = '\n'; break;
+                    case '\x72': span[length++] = '\r'; break;
+                    case '\x74': span[length++] = '\t'; break;
+                    // clang-format on
+                    case '\x75': {
+                        int cp = parse_hex(s);
+                        if (cp < 0)
+                            return error::invalid_string_escape;
+                        if (cp >= 0xD800 && cp <= 0xDBFF) {
+                            if (s.getch() != '\\' || s.getch() != '\x75')
+                                return error::invalid_surrogate_pair;
+                            int low = parse_hex(s);
+                            if (low < 0xDC00 || low > 0xDFFF)
+                                return error::invalid_surrogate_pair;
+                            cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
+                        }
+                        if (cp < 0x80) {
+                            span[length++] = (char)cp;
+                        } else if (cp < 0x800) {
+                            span[length++] = 0xC0 | ((char)(cp >> 6));
+                            span[length++] = 0x80 | (cp & 0x3F);
+                        } else if (cp < 0x10000) {
+                            span[length++] = 0xE0 | ((char)(cp >> 12));
+                            span[length++] = 0x80 | ((cp >> 6) & 0x3F);
+                            span[length++] = 0x80 | (cp & 0x3F);
+                        } else {
+                            span[length++] = 0xF0 | ((char)(cp >> 18));
+                            span[length++] = 0x80 | ((cp >> 12) & 0x3F);
+                            span[length++] = 0x80 | ((cp >> 6) & 0x3F);
+                            span[length++] = 0x80 | (cp & 0x3F);
+                        }
+                        continue;
+                    }
+                    default:
+                        return error::invalid_string_escape;
+                    }
                 }
             }
         }
