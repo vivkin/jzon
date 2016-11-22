@@ -24,6 +24,7 @@ TEST_CASE("boxing") {
     }
 
     pbox(gason2::error::expecting_value);
+    pbox(gason2::error::unexpected_character);
     pbox({gason2::type::null, 0});
     pbox({gason2::type::boolean, false});
     pbox({gason2::type::boolean, true});

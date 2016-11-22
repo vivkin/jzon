@@ -118,7 +118,7 @@ public:
 };
 
 enum class type : unsigned int {
-    number = 0xFFF00000,
+    number = 0xFFF80000,
     null,
     boolean,
     string,
@@ -127,7 +127,7 @@ enum class type : unsigned int {
 };
 
 enum class error : unsigned int {
-    expecting_string = 0xFFF10000,
+    expecting_string = 0xFFF90000,
     expecting_value,
     invalid_literal_name,
     invalid_number,
