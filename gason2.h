@@ -286,12 +286,16 @@ struct parser {
 
     static box parse_string(stream &s, vector<box> &v) {
         size_t offset = v.size();
-        size_t length = 0;
-        for (;;) {
-            v.resize(v.size() + 8);
-            char *span = v[offset].bytes;
+        size_t n = 0;
 
-            for (size_t size_end = length + sizeof(box) * 7; length < size_end;) {
+        for (;;) {
+            v.resize(v.size() + (32 / sizeof(box)));
+
+            char *begin = v.begin()->bytes + offset * sizeof(box);
+            char *it = begin + n;
+            char *end = v.end()->bytes - 5;
+
+            while (it < end) {
                 int ch = s.getch();
 
                 if (ch < ' ') {
@@ -299,25 +303,23 @@ struct parser {
                 }
 
                 if (ch == '"') {
-                    span[length] = '\0';
-                    v.resize(offset + (length + 8) / 8);
+                    *it++ = '\0';
+                    n = it - begin;
+                    v.resize(offset + ((n + sizeof(box)) / sizeof(box)));
                     return {type::string, offset};
                 }
-
-                if (ch != '\\')
-                    span[length++] = ch;
 
                 if (ch == '\\') {
                     switch (s.getch()) {
                     // clang-format off
-                    case '\x22': span[length++] = '"'; break;
-                    case '\x2F': span[length++] = '/'; break;
-                    case '\x5C': span[length++] = '\\'; break;
-                    case '\x62': span[length++] = '\b'; break;
-                    case '\x66': span[length++] = '\f'; break;
-                    case '\x6E': span[length++] = '\n'; break;
-                    case '\x72': span[length++] = '\r'; break;
-                    case '\x74': span[length++] = '\t'; break;
+                    case '\x22': ch = '"'; break;
+                    case '\x2F': ch = '/'; break;
+                    case '\x5C': ch = '\\'; break;
+                    case '\x62': ch = '\b'; break;
+                    case '\x66': ch = '\f'; break;
+                    case '\x6E': ch = '\n'; break;
+                    case '\x72': ch = '\r'; break;
+                    case '\x74': ch = '\t'; break;
                     // clang-format on
                     case '\x75': {
                         int cp = parse_hex(s);
@@ -332,19 +334,19 @@ struct parser {
                             cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
                         }
                         if (cp < 0x80) {
-                            span[length++] = (char)cp;
+                            *it++ = (char)cp;
                         } else if (cp < 0x800) {
-                            span[length++] = 0xC0 | ((char)(cp >> 6));
-                            span[length++] = 0x80 | (cp & 0x3F);
+                            *it++ = 0xC0 | ((char)(cp >> 6));
+                            *it++ = 0x80 | (cp & 0x3F);
                         } else if (cp < 0x10000) {
-                            span[length++] = 0xE0 | ((char)(cp >> 12));
-                            span[length++] = 0x80 | ((cp >> 6) & 0x3F);
-                            span[length++] = 0x80 | (cp & 0x3F);
+                            *it++ = 0xE0 | ((char)(cp >> 12));
+                            *it++ = 0x80 | ((cp >> 6) & 0x3F);
+                            *it++ = 0x80 | (cp & 0x3F);
                         } else {
-                            span[length++] = 0xF0 | ((char)(cp >> 18));
-                            span[length++] = 0x80 | ((cp >> 12) & 0x3F);
-                            span[length++] = 0x80 | ((cp >> 6) & 0x3F);
-                            span[length++] = 0x80 | (cp & 0x3F);
+                            *it++ = 0xF0 | ((char)(cp >> 18));
+                            *it++ = 0x80 | ((cp >> 12) & 0x3F);
+                            *it++ = 0x80 | ((cp >> 6) & 0x3F);
+                            *it++ = 0x80 | (cp & 0x3F);
                         }
                         continue;
                     }
@@ -352,7 +354,10 @@ struct parser {
                         return error::invalid_string_escape;
                     }
                 }
+
+                *it++ = ch;
             }
+            n = it - begin;
         }
     }
 
