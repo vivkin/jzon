@@ -117,11 +117,17 @@ public:
     bool empty() const { return _size == 0; }
 };
 
-constexpr unsigned int nan_mask = 0xFFF00000;
-constexpr unsigned int err_mask = nan_mask | (1 << 16);
+enum class type : unsigned int {
+    number = 0xFFF00000,
+    null,
+    boolean,
+    string,
+    array,
+    object,
+};
 
 enum class error : unsigned int {
-    expecting_string = err_mask,
+    expecting_string = 0xFFF10000,
     expecting_value,
     invalid_literal_name,
     invalid_number,
@@ -133,34 +139,24 @@ enum class error : unsigned int {
     unexpected_character,
 };
 
-enum class type : unsigned int {
-    number = nan_mask,
-    null,
-    boolean,
-    string,
-    array,
-    object,
-};
-
 union box {
     char bytes[8];
     double number;
     struct {
         unsigned int payload;
         union {
-            unsigned int bits;
-            gason2::error error;
             gason2::type type;
+            gason2::error error;
         } tag;
     };
 
     box() = default;
     constexpr box(double x) : number(x) {}
-    constexpr box(error t) : tag({static_cast<unsigned int>(t)}) {}
-    constexpr box(type t, size_t x = 0) : payload(x), tag({static_cast<unsigned int>(t)}) {}
+    constexpr box(type t, size_t x = 0) : payload(x), tag{t} {}
+    constexpr box(error t) : tag{static_cast<type>(t)} {}
 
-    constexpr bool is_nan() const { return tag.bits > nan_mask; }
-    constexpr bool is_error() const { return tag.bits >= err_mask; }
+    constexpr bool is_nan() const { return tag.type > type::number; }
+    constexpr bool is_error() const { return tag.type > type::object; }
 };
 
 class value {
@@ -169,7 +165,7 @@ protected:
     box _data;
 
 public:
-    value(const box *data = nullptr, box v = type::null) : _stack(data), _data(v) {}
+    value(const box *stack = nullptr, box data = type::null) : _stack(stack), _data(data) {}
 
     gason2::type type() const { return _data.is_nan() ? _data.tag.type : type::number; }
 
@@ -183,7 +179,7 @@ public:
     double to_number() const { return is_number() ? _data.number : 0; }
     bool to_bool() const { return is_bool() && _data.payload; }
     const char *to_string() const { return is_string() ? _stack[_data.payload].bytes : ""; }
-    size_t size() const { return (is_array() || is_object()) ? _stack[_data.payload - 1].payload : 0; }
+    size_t size() const { return _data.tag.type > type::string ? _stack[_data.payload - 1].payload : 0; }
     value operator[](size_t index) const { return index < size() ? value{_stack, _stack[_data.payload + index]} : value{}; }
     value operator[](const char *name) const {
         if (is_object())
