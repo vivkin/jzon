@@ -189,6 +189,53 @@ public:
         return {};
     }
 
+    class element_iterator {
+        const value *_pointer, *_storage;
+
+    public:
+        element_iterator(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
+        element_iterator &operator++() {
+            ++_pointer;
+            return *this;
+        }
+        element_iterator operator++(int) {
+            auto temp = *this;
+            operator++();
+            return temp;
+        }
+        bool operator==(const element_iterator &rhs) const { return _pointer == rhs._pointer && _storage == rhs._storage; };
+        bool operator!=(const element_iterator &rhs) const { return _pointer != rhs._pointer || _storage != rhs._storage; };
+        node operator*() const { return {_storage, *_pointer}; }
+    };
+
+    class member {
+        const value *_pointer, *_storage;
+
+    public:
+        member(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
+        node name() const { return {_storage, _pointer[0]}; }
+        node value() const { return {_storage, _pointer[1]}; }
+    };
+
+    class member_iterator {
+        const value *_pointer, *_storage;
+
+    public:
+        member_iterator(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
+        member_iterator &operator++() {
+            _pointer += 2;
+            return *this;
+        }
+        member_iterator operator++(int) {
+            auto temp = *this;
+            operator++();
+            return temp;
+        }
+        bool operator==(const member_iterator &rhs) const { return _pointer == rhs._pointer && _storage == rhs._storage; };
+        bool operator!=(const member_iterator &rhs) const { return _pointer != rhs._pointer || _storage != rhs._storage; };
+        member operator*() const { return {_pointer, _storage}; }
+    };
+
     template <typename T>
     class iterator_range {
         T _first, _last;
@@ -199,27 +246,11 @@ public:
         T end() const { return _last; }
     };
 
-    class element_iterator {
-        const value *_pointer;
-        const value *_storage;
-
-    public:
-        element_iterator(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
-        bool operator==(const element_iterator &rhs) const { return _pointer == rhs._pointer && _storage == rhs._storage; };
-        bool operator!=(const element_iterator &rhs) const { return _pointer != rhs._pointer || _storage != rhs._storage; };
-        node operator*() const { return {_storage, *_pointer}; }
-        element_iterator &operator++() {
-            ++_pointer;
-            return *this;
-        }
-        element_iterator operator++(int) {
-            auto temp = *this;
-            operator++();
-            return temp;
-        }
-    };
-
     iterator_range<element_iterator> elements() const {
+        return {{_storage + _data.payload, _storage}, {_storage + _data.payload + size(), _storage}};
+    }
+
+    iterator_range<member_iterator> members() const {
         return {{_storage + _data.payload, _storage}, {_storage + _data.payload + size(), _storage}};
     }
 };

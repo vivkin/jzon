@@ -27,9 +27,9 @@ static void GenStat(Stat &stat, const gason2::node &v) {
         break;
 
     case gason2::type::object:
-        for (size_t i = 0; i < v.size(); i += 2) {
-            stat.stringLength += strlen(v[i].to_string());
-            GenStat(stat, v[i + 1]);
+        for (auto i : v.members()) {
+            stat.stringLength += strlen(i.name().to_string());
+            GenStat(stat, i.value());
         }
         stat.memberCount += v.size() / 2;
         stat.stringCount += v.size() / 2;

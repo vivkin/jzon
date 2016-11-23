@@ -74,11 +74,12 @@ struct dump {
         case type::object:
             if (v.size()) {
                 char comma = '{';
-                for (size_t i = 0, i_end = v.size(); i < i_end; i += 2, comma = ',') {
+                for (auto i : v.members()) {
                     s.push_back(comma);
-                    stringify(s, v[i]);
+                    stringify(s, i.name());
                     s.push_back(':');
-                    stringify(s, v[i + 1]);
+                    stringify(s, i.value());
+                    comma = ',';
                 }
             } else {
                 s.push_back('{');
@@ -118,12 +119,13 @@ struct dump {
         case type::object:
             if (v.size()) {
                 char comma = '{';
-                for (size_t i = 0, i_end = v.size(); i < i_end; i += 2, comma = ',') {
+                for (auto i : v.members()) {
                     s.push_back(comma);
                     indent(s, depth + 1);
-                    stringify(s, v[i]);
+                    stringify(s, i.name());
                     s.append(": ", 2);
-                    prettify(s, v[i + 1], depth + 1);
+                    prettify(s, i.value());
+                    comma = ',';
                 }
                 indent(s, depth);
             } else {
