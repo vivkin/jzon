@@ -166,6 +166,7 @@ protected:
 
 public:
     node(value data = type::null, const value *storage = nullptr) : _data(data), _storage(storage) {}
+    node(const value *pointer, const value *storage) : _data(*pointer), _storage(storage) {}
 
     gason2::type type() const { return _data.is_nan() ? _data.tag.type : type::number; }
 
@@ -180,7 +181,7 @@ public:
     bool to_bool() const { return is_bool() && _data.payload; }
     const char *to_string() const { return is_string() ? _storage[_data.payload].bytes : ""; }
     size_t size() const { return _data.tag.type > type::string ? _storage[_data.payload - 1].payload : 0; }
-    node operator[](size_t index) const { return index < size() ? node{_storage[_data.payload + index], _storage} : node{}; }
+    node operator[](size_t index) const { return index < size() ? node{_storage + _data.payload + index, _storage} : node{}; }
     node operator[](const char *name) const {
         if (is_object())
             for (size_t i = 0, i_end = size(); i < i_end; i += 2)
@@ -189,51 +190,33 @@ public:
         return {};
     }
 
-    class element_iterator {
-        const value *_pointer, *_storage;
-
-    public:
-        element_iterator(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
-        element_iterator &operator++() {
-            ++_pointer;
-            return *this;
-        }
-        element_iterator operator++(int) {
-            auto temp = *this;
-            operator++();
-            return temp;
-        }
-        bool operator==(const element_iterator &rhs) const { return _pointer == rhs._pointer && _storage == rhs._storage; };
-        bool operator!=(const element_iterator &rhs) const { return _pointer != rhs._pointer || _storage != rhs._storage; };
-        node operator*() const { return {*_pointer, _storage}; }
-    };
-
     class member {
         const value *_pointer, *_storage;
 
     public:
         member(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
-        node name() const { return {_pointer[0], _storage}; }
-        node value() const { return {_pointer[1], _storage}; }
+        node name() const { return {_pointer + 0, _storage}; }
+        node value() const { return {_pointer + 1, _storage}; }
     };
 
-    class member_iterator {
+    template <size_t N, typename T>
+    class iterator {
         const value *_pointer, *_storage;
 
     public:
-        member_iterator(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
-        member_iterator &operator++() {
-            _pointer += 2;
+        iterator(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
+        iterator &operator++() {
+            _pointer += N;
             return *this;
         }
-        member_iterator operator++(int) {
+        iterator operator++(int) {
             auto temp = *this;
             operator++();
             return temp;
         }
-        bool operator==(const member_iterator &rhs) const { return _pointer == rhs._pointer && _storage == rhs._storage; };
-        bool operator!=(const member_iterator &rhs) const { return _pointer != rhs._pointer || _storage != rhs._storage; };
-        member operator*() const { return {_pointer, _storage}; }
+        bool operator==(const iterator &x) const { return _pointer == x._pointer && _storage == x._storage; };
+        bool operator!=(const iterator &x) const { return _pointer != x._pointer || _storage != x._storage; };
+        T operator*() const { return {_pointer, _storage}; }
     };
 
     template <typename T>
@@ -246,11 +229,11 @@ public:
         T end() const { return _last; }
     };
 
-    iterator_range<element_iterator> elements() const {
+    iterator_range<iterator<1, node>> elements() const {
         return {{_storage + _data.payload, _storage}, {_storage + _data.payload + size(), _storage}};
     }
 
-    iterator_range<member_iterator> members() const {
+    iterator_range<iterator<2, member>> members() const {
         return {{_storage + _data.payload, _storage}, {_storage + _data.payload + size(), _storage}};
     }
 };
