@@ -166,9 +166,7 @@ protected:
 
 public:
     node(value data = type::null, const value *storage = nullptr) : _data(data), _storage(storage) {}
-    node(const value *pointer, const value *storage) : _data(*pointer), _storage(storage) {}
-
-    gason2::type type() const { return _data.is_nan() ? _data.tag.type : type::number; }
+    node(const value *pointer, const value *storage) : node(*pointer, storage) {}
 
     bool is_number() const { return !_data.is_nan(); }
     bool is_null() const { return _data.tag.type == type::null; }
@@ -177,18 +175,11 @@ public:
     bool is_array() const { return _data.tag.type == type::array; }
     bool is_object() const { return _data.tag.type == type::object; }
 
-    double to_number() const { return is_number() ? _data.number : 0; }
-    bool to_bool() const { return is_bool() && _data.payload; }
-    const char *to_string() const { return is_string() ? _storage[_data.payload].bytes : ""; }
-    size_t size() const { return _data.tag.type > type::string ? _storage[_data.payload - 1].payload : 0; }
-    node operator[](size_t index) const { return index < size() ? node{_storage + _data.payload + index, _storage} : node{}; }
-    node operator[](const char *name) const {
-        if (is_object())
-            for (size_t i = 0, i_end = size(); i < i_end; i += 2)
-                if (!strcmp(operator[](i).to_string(), name))
-                    return operator[](i + 1);
-        return {};
-    }
+    gason2::type type() const { return _data.is_nan() ? _data.tag.type : type::number; }
+
+    double to_number(double defval = 0) const { return is_number() ? _data.number : defval; }
+    bool to_bool(bool defval = false) const { return is_bool() ? _data.payload != 0 : defval; }
+    const char *to_string(const char *defval = "") const { return is_string() ? _storage[_data.payload].bytes : defval; }
 
     class member {
         const value *_pointer, *_storage;
@@ -230,11 +221,36 @@ public:
     };
 
     iterator_range<iterator<1, node>> elements() const {
-        return {{_storage + _data.payload, _storage}, {_storage + _data.payload + size(), _storage}};
+        auto pointer = _storage + _data.payload;
+        return {{pointer, _storage}, {pointer + (is_array() ? pointer[-1].payload : 0), _storage}};
     }
 
     iterator_range<iterator<2, member>> members() const {
-        return {{_storage + _data.payload, _storage}, {_storage + _data.payload + size(), _storage}};
+        auto pointer = _storage + _data.payload;
+        return {{pointer, _storage}, {pointer + (is_object() ? pointer[-1].payload : 0), _storage}};
+    }
+
+    size_t size() const {
+        if (is_array())
+            return _storage[_data.payload - 1].payload;
+        else if (is_object())
+            return _storage[_data.payload - 1].payload / 2;
+        return 0;
+    }
+
+    node operator[](size_t index) const {
+        return index < size() ? node{_storage + _data.payload + index, _storage} : node{};
+    }
+
+    node operator[](int index) const {
+        return operator[](static_cast<size_t>(index));
+    }
+
+    node operator[](const char *name) const {
+        for (auto i : members())
+            if (!strcmp(name, i.name().to_string()))
+                return i.value();
+        return {};
     }
 };
 
