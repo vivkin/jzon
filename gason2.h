@@ -139,7 +139,7 @@ enum class error : unsigned int {
     unexpected_character,
 };
 
-union box {
+union value {
     char bytes[8];
     double number;
     struct {
@@ -150,22 +150,22 @@ union box {
         } tag;
     };
 
-    box() = default;
-    constexpr box(double x) : number(x) {}
-    constexpr box(type t, size_t x = 0) : payload(x), tag{t} {}
-    constexpr box(error t) : tag{static_cast<type>(t)} {}
+    value() = default;
+    constexpr value(double x) : number(x) {}
+    constexpr value(type t, size_t x = 0) : payload(x), tag{t} {}
+    constexpr value(error t) : tag{static_cast<type>(t)} {}
 
     constexpr bool is_nan() const { return tag.type > type::number; }
     constexpr bool is_error() const { return tag.type > type::object; }
 };
 
-class value {
+class node {
 protected:
-    const box *_stack;
-    box _data;
+    const value *_storage;
+    value _data;
 
 public:
-    value(const box *stack = nullptr, box data = type::null) : _stack(stack), _data(data) {}
+    node(const value *storage = nullptr, value data = type::null) : _storage(storage), _data(data) {}
 
     gason2::type type() const { return _data.is_nan() ? _data.tag.type : type::number; }
 
@@ -178,10 +178,10 @@ public:
 
     double to_number() const { return is_number() ? _data.number : 0; }
     bool to_bool() const { return is_bool() && _data.payload; }
-    const char *to_string() const { return is_string() ? _stack[_data.payload].bytes : ""; }
-    size_t size() const { return _data.tag.type > type::string ? _stack[_data.payload - 1].payload : 0; }
-    value operator[](size_t index) const { return index < size() ? value{_stack, _stack[_data.payload + index]} : value{}; }
-    value operator[](const char *name) const {
+    const char *to_string() const { return is_string() ? _storage[_data.payload].bytes : ""; }
+    size_t size() const { return _data.tag.type > type::string ? _storage[_data.payload - 1].payload : 0; }
+    node operator[](size_t index) const { return index < size() ? node{_storage, _storage[_data.payload + index]} : node{}; }
+    node operator[](const char *name) const {
         if (is_object())
             for (size_t i = 0, i_end = size(); i < i_end; i += 2)
                 if (!strcmp(operator[](i).to_string(), name))
@@ -206,7 +206,7 @@ struct stream {
 struct parser {
     static inline bool is_digit(int c) { return c >= '0' && c <= '9'; }
 
-    static box parse_number(stream &s) {
+    static value parse_number(stream &s) {
         unsigned long long integer = 0;
         double significand = 0;
         int fraction = 0;
@@ -284,7 +284,7 @@ struct parser {
         return cp;
     }
 
-    static box parse_string(stream &s, vector<box> &v) {
+    static value parse_string(stream &s, vector<value> &v) {
         for (size_t length = 0, offset = v.size();;) {
             v.resize(v.size() + 4);
 
@@ -300,7 +300,7 @@ struct parser {
                 if (ch == '"') {
                     *first++ = '\0';
                     length = first - (v.begin() + offset)->bytes;
-                    v.resize(offset + ((length + sizeof(box)) / sizeof(box)));
+                    v.resize(offset + ((length + sizeof(value)) / sizeof(value)));
                     return {type::string, offset};
                 }
 
@@ -357,14 +357,14 @@ struct parser {
         }
     }
 
-    vector<box> _backlog;
-    vector<box> _stack;
+    vector<value> _backlog;
+    vector<value> _storage;
 
-    box parse_value(stream &s) {
+    value parse_value(stream &s) {
         switch (s.skipws()) {
         case '"':
             s.getch();
-            return parse_string(s, _stack);
+            return parse_string(s, _storage);
         case 'f':
             s.getch();
             if (s.getch() == 'a' && s.getch() == 'l' && s.getch() == 's' && s.getch() == 'e')
@@ -399,10 +399,10 @@ struct parser {
                 return error::missing_comma_or_bracket;
 
             size_t size = _backlog.size() - frame;
-            _stack.push_back({type::array, size});
-            _stack.append(_backlog.begin() + frame, size);
+            _storage.push_back({type::array, size});
+            _storage.append(_backlog.begin() + frame, size);
             _backlog.resize(frame);
-            return {type::array, _stack.size() - size};
+            return {type::array, _storage.size() - size};
         }
         case '{': {
             s.getch();
@@ -412,7 +412,7 @@ struct parser {
                 if (s.peek() != '"')
                     return error::expecting_string;
                 s.getch();
-                _backlog.push_back(parse_string(s, _stack));
+                _backlog.push_back(parse_string(s, _storage));
                 if (_backlog.back().is_error())
                     return _backlog.back();
 
@@ -434,10 +434,10 @@ struct parser {
                 return error::missing_comma_or_bracket;
 
             size_t size = _backlog.size() - frame;
-            _stack.push_back({type::object, size});
-            _stack.append(_backlog.begin() + frame, size);
+            _storage.push_back({type::object, size});
+            _storage.append(_backlog.begin() + frame, size);
             _backlog.resize(frame);
-            return {type::object, _stack.size() - size};
+            return {type::object, _storage.size() - size};
         }
         case '-':
             s.getch();
@@ -453,8 +453,8 @@ struct parser {
     }
 };
 
-class document : public value {
-    vector<box> _stack;
+class document : public node {
+    vector<value> _storage;
 
 public:
     bool parse(const char *json) {
@@ -470,8 +470,8 @@ public:
             return false;
         }
 
-        _stack = static_cast<vector<box> &&>(p._stack);
-        value::_stack = _stack.data();
+        _storage = static_cast<vector<value> &&>(p._storage);
+        node::_storage = _storage.data();
 
         return true;
     }

@@ -9,7 +9,7 @@
 
 TEST_SUITE("my");
 
-void pbox(gason2::box v) {
+void pbox(gason2::value v) {
     printf("%2d %6d %8x %10u %13g\n", v.number == v.number, v.is_nan(), static_cast<unsigned int>(v.tag.type), v.payload, v.number);
 }
 
