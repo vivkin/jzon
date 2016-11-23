@@ -188,6 +188,40 @@ public:
                     return operator[](i + 1);
         return {};
     }
+
+    template <typename T>
+    class iterator_range {
+        T _first, _last;
+
+    public:
+        iterator_range(T first, T last) : _first(first), _last(last) {}
+        T begin() const { return _first; }
+        T end() const { return _last; }
+    };
+
+    class element_iterator {
+        const value *_pointer;
+        const value *_storage;
+
+    public:
+        element_iterator(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
+        bool operator==(const element_iterator &rhs) const { return _pointer == rhs._pointer && _storage == rhs._storage; };
+        bool operator!=(const element_iterator &rhs) const { return _pointer != rhs._pointer || _storage != rhs._storage; };
+        node operator*() const { return {_storage, *_pointer}; }
+        element_iterator &operator++() {
+            ++_pointer;
+            return *this;
+        }
+        element_iterator operator++(int) {
+            auto temp = *this;
+            operator++();
+            return temp;
+        }
+    };
+
+    iterator_range<element_iterator> elements() const {
+        return {{_storage + _data.payload, _storage}, {_storage + _data.payload + size(), _storage}};
+    }
 };
 
 struct stream {

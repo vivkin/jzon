@@ -60,9 +60,10 @@ struct dump {
         case type::array:
             if (v.size()) {
                 char comma = '[';
-                for (size_t i = 0, i_end = v.size(); i < i_end; ++i, comma = ',') {
+                for (auto i : v.elements()) {
                     s.push_back(comma);
-                    stringify(s, v[i]);
+                    stringify(s, i);
+                    comma = ',';
                 }
             } else {
                 s.push_back('[');
@@ -101,10 +102,11 @@ struct dump {
         case type::array:
             if (v.size()) {
                 char comma = '[';
-                for (size_t i = 0, i_end = v.size(); i < i_end; ++i, comma = ',') {
+                for (auto i : v.elements()) {
                     s.push_back(comma);
                     indent(s, depth + 1);
-                    prettify(s, v[i], depth + 1);
+                    prettify(s, i, depth + 1);
+                    comma = ',';
                 }
                 indent(s, depth);
             } else {
@@ -154,21 +156,23 @@ struct dump {
         if (right - left > 80)
             right = endptr + 80 - (endptr - left);
 
-        const char *str = "";
+        const char *desc = "";
+        // clang-format off
         switch (doc.error_code()) {
-        case error::expecting_string: str = "expecting string"; break;
-        case error::expecting_value: str = "expecting value"; break;
-        case error::invalid_literal_name: str = "invalid literal name"; break;
-        case error::invalid_number: str = "invalid number"; break;
-        case error::invalid_string_char: str = "invalid string char"; break;
-        case error::invalid_string_escape: str = "invalid string escape"; break;
-        case error::invalid_surrogate_pair: str = "invalid surrogate pair"; break;
-        case error::missing_colon: str = "missing colon"; break;
-        case error::missing_comma_or_bracket: str = "missing comma or bracket"; break;
-        case error::unexpected_character: str = "unexpected character"; break;
+        case error::expecting_string: desc = "expecting string"; break;
+        case error::expecting_value: desc = "expecting value"; break;
+        case error::invalid_literal_name: desc = "invalid literal name"; break;
+        case error::invalid_number: desc = "invalid number"; break;
+        case error::invalid_string_char: desc = "invalid string char"; break;
+        case error::invalid_string_escape: desc = "invalid string escape"; break;
+        case error::invalid_surrogate_pair: desc = "invalid surrogate pair"; break;
+        case error::missing_colon: desc = "missing colon"; break;
+        case error::missing_comma_or_bracket: desc = "missing comma or bracket"; break;
+        case error::unexpected_character: desc = "unexpected character"; break;
         }
+        // clang-format on
 
-        return fprintf(stderr, "%s:%d:%d: error: %s\n%.*s\n%*s\n", filename, lineno, column, str, int(right - left), left, int(endptr - left), "^");
+        return fprintf(stderr, "%s:%d:%d: error: %s\n%.*s\n%*s\n", filename, lineno, column, desc, int(right - left), left, int(endptr - left), "^");
     }
 };
 }
