@@ -294,9 +294,8 @@ struct parser {
             while (first < last) {
                 int ch = s.getch();
 
-                if (ch < ' ') {
+                if (ch < ' ')
                     return error::invalid_string_char;
-                }
 
                 if (ch == '"') {
                     *first++ = '\0';
@@ -317,38 +316,35 @@ struct parser {
                     case '\x72': ch = '\r'; break;
                     case '\x74': ch = '\t'; break;
                     // clang-format on
-                    case '\x75': {
-                        int cp = parse_hex(s);
-
-                        if (cp < 0)
+                    case '\x75':
+                        if ((ch = parse_hex(s)) < 0)
                             return error::invalid_string_escape;
 
-                        if (cp >= 0xD800 && cp <= 0xDBFF) {
+                        if (ch >= 0xD800 && ch <= 0xDBFF) {
                             if (s.getch() != '\\' || s.getch() != '\x75')
                                 return error::invalid_surrogate_pair;
                             int low = parse_hex(s);
                             if (low < 0xDC00 || low > 0xDFFF)
                                 return error::invalid_surrogate_pair;
-                            cp = 0x10000 + ((cp & 0x3FF) << 10) + (low & 0x3FF);
+                            ch = 0x10000 + ((ch & 0x3FF) << 10) + (low & 0x3FF);
                         }
 
-                        if (cp < 0x80) {
-                            *first++ = (char)cp;
-                        } else if (cp < 0x800) {
-                            *first++ = 0xC0 | ((char)(cp >> 6));
-                            *first++ = 0x80 | (cp & 0x3F);
-                        } else if (cp < 0x10000) {
-                            *first++ = 0xE0 | ((char)(cp >> 12));
-                            *first++ = 0x80 | ((cp >> 6) & 0x3F);
-                            *first++ = 0x80 | (cp & 0x3F);
+                        if (ch < 0x80) {
+                            *first++ = (char)ch;
+                        } else if (ch < 0x800) {
+                            *first++ = 0xC0 | ((char)(ch >> 6));
+                            *first++ = 0x80 | (ch & 0x3F);
+                        } else if (ch < 0x10000) {
+                            *first++ = 0xE0 | ((char)(ch >> 12));
+                            *first++ = 0x80 | ((ch >> 6) & 0x3F);
+                            *first++ = 0x80 | (ch & 0x3F);
                         } else {
-                            *first++ = 0xF0 | ((char)(cp >> 18));
-                            *first++ = 0x80 | ((cp >> 12) & 0x3F);
-                            *first++ = 0x80 | ((cp >> 6) & 0x3F);
-                            *first++ = 0x80 | (cp & 0x3F);
+                            *first++ = 0xF0 | ((char)(ch >> 18));
+                            *first++ = 0x80 | ((ch >> 12) & 0x3F);
+                            *first++ = 0x80 | ((ch >> 6) & 0x3F);
+                            *first++ = 0x80 | (ch & 0x3F);
                         }
                         continue;
-                    }
                     default:
                         return error::invalid_string_escape;
                     }
