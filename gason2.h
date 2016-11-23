@@ -161,11 +161,11 @@ union value {
 
 class node {
 protected:
-    const value *_storage;
     value _data;
+    const value *_storage;
 
 public:
-    node(const value *storage = nullptr, value data = type::null) : _storage(storage), _data(data) {}
+    node(value data = type::null, const value *storage = nullptr) : _data(data), _storage(storage) {}
 
     gason2::type type() const { return _data.is_nan() ? _data.tag.type : type::number; }
 
@@ -180,7 +180,7 @@ public:
     bool to_bool() const { return is_bool() && _data.payload; }
     const char *to_string() const { return is_string() ? _storage[_data.payload].bytes : ""; }
     size_t size() const { return _data.tag.type > type::string ? _storage[_data.payload - 1].payload : 0; }
-    node operator[](size_t index) const { return index < size() ? node{_storage, _storage[_data.payload + index]} : node{}; }
+    node operator[](size_t index) const { return index < size() ? node{_storage[_data.payload + index], _storage} : node{}; }
     node operator[](const char *name) const {
         if (is_object())
             for (size_t i = 0, i_end = size(); i < i_end; i += 2)
@@ -205,7 +205,7 @@ public:
         }
         bool operator==(const element_iterator &rhs) const { return _pointer == rhs._pointer && _storage == rhs._storage; };
         bool operator!=(const element_iterator &rhs) const { return _pointer != rhs._pointer || _storage != rhs._storage; };
-        node operator*() const { return {_storage, *_pointer}; }
+        node operator*() const { return {*_pointer, _storage}; }
     };
 
     class member {
@@ -213,8 +213,8 @@ public:
 
     public:
         member(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
-        node name() const { return {_storage, _pointer[0]}; }
-        node value() const { return {_storage, _pointer[1]}; }
+        node name() const { return {_pointer[0], _storage}; }
+        node value() const { return {_pointer[1], _storage}; }
     };
 
     class member_iterator {
@@ -291,7 +291,7 @@ struct parser {
         if (s.peek() == '.') {
             s.getch();
 
-            while (is_digit(s.peek()) && integer < 0x1fffffffffffffull) {
+            while (is_digit(s.peek()) && integer < 0x1FFFFFFFFFFFFFull) {
                 integer = (integer * 10) + (s.getch() - '0');
                 --fraction;
             }
