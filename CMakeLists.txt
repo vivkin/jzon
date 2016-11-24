@@ -14,9 +14,11 @@ endif()
 
 include_directories("include")
 
-file(GLOB TEST_SOURCES LIST_DIRECTORIES false "test/*.cpp")
+file(GLOB TEST_SOURCES "test/*.cpp")
 add_executable(jzontests ${TEST_SOURCES})
-target_compile_definitions(jzontests PRIVATE DOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING)
+target_compile_definitions(jzontests PRIVATE
+  DOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING
+  DOCTEST_CONFIG_SUPER_FAST_ASSERTS)
 add_executable(jzonprint src/print.cpp)
 add_executable(jzonstats src/stats.cpp)
 
