@@ -14,7 +14,8 @@ endif()
 
 include_directories("include")
 
-add_executable(jzontests test/tests.cpp)
+file(GLOB TEST_SOURCES LIST_DIRECTORIES false "test/*.cpp")
+add_executable(jzontests ${TEST_SOURCES})
 add_executable(jzonprint src/print.cpp)
 add_executable(jzonstats src/stats.cpp)
 
