@@ -55,38 +55,50 @@ static void GenStat(Stat &stat, const gason2::node &v) {
     case gason2::type::null:
         stat.nullCount++;
         break;
-
-    default:
-        break;
     }
 }
 
 int main(int argc, char **argv) {
+    if (argc < 2) {
+        fprintf(stderr, "usage: %s [file ...]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    printf("%10.10s %10.10s %10.10s %10.10s %10.10s %10.10s %10.10s %10.10s %10.10s %10.10s\n",
+           "object",
+           "array",
+           "number",
+           "string",
+           "true",
+           "false",
+           "null",
+           "member",
+           "element",
+           "#string");
+
     for (int i = 1; i < argc; ++i) {
-        FILE *fp = fopen(argv[i], "r");
+        FILE *fp = strcmp(argv[i], "-") ? fopen(argv[i], "rb") : stdin;
         if (!fp) {
             perror(argv[i]);
             exit(EXIT_FAILURE);
         }
 
-        fseek(fp, 0, SEEK_END);
-        size_t size = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-        gason2::vector<char> source;
-        source.resize(size + 1);
-        source.back() = '\0';
-        fread(source.data(), 1, size, fp);
+        gason2::vector<char> src;
+        while (!feof(fp)) {
+            char buf[BUFSIZ];
+            src.append(buf, fread(buf, 1, sizeof(buf), fp));
+        }
+        src.push_back('\0');
+        src.pop_back();
         fclose(fp);
 
         gason2::document doc;
-        if (!doc.parse(source.data())) {
-            gason2::dump::print_error(argv[i], source.data(), doc);
-        }
+        if (!doc.parse(src.data()))
+            gason2::dump::print_error(argv[i], src.data(), doc);
 
         Stat stat = {};
         GenStat(stat, doc);
-        printf("%s: %zd %zd %zd %zd %zd %zd %zd %zd %zd %zd\n",
-               argv[i],
+        printf("%10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %s\n",
                stat.objectCount,
                stat.arrayCount,
                stat.numberCount,
@@ -96,7 +108,8 @@ int main(int argc, char **argv) {
                stat.nullCount,
                stat.memberCount,
                stat.elementCount,
-               stat.stringLength);
+               stat.stringLength,
+               argv[i]);
     }
 
     return 0;
