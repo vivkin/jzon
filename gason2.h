@@ -414,7 +414,7 @@ struct parser {
                     }
                 }
 
-                *first++ = ch;
+                *first++ = (char)ch;
             }
 
             length = first - (v.begin() + offset)->bytes;
