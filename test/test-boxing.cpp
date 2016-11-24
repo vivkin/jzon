@@ -6,8 +6,8 @@
 using namespace gason2;
 
 #define TEST_NOTNAN(x)              \
-    CHECK_FALSE(value{x}.is_nan()); \
-    CHECK_FALSE(value{-x}.is_nan())
+    CHECK_FALSE(var_t{x}.is_nan()); \
+    CHECK_FALSE(var_t{-x}.is_nan())
 
 TEST_CASE("[gason] boxing double") {
     TEST_NOTNAN(0.0);
@@ -37,9 +37,9 @@ TEST_CASE("[gason] boxing double") {
 }
 
 #define TEST_TYPE(x)                  \
-    CHECK(value{x}.is_nan());         \
-    CHECK_FALSE(value{x}.is_error()); \
-    CHECK(value{x}.tag.type == x)
+    CHECK(var_t{x}.is_nan());         \
+    CHECK_FALSE(var_t{x}.is_error()); \
+    CHECK(var_t{x}.tag.type == x)
 
 TEST_CASE("[gason] boxing types") {
     TEST_TYPE(type::null);
@@ -50,9 +50,9 @@ TEST_CASE("[gason] boxing types") {
 }
 
 #define TEST_ERROR(x)           \
-    CHECK(value{x}.is_nan());   \
-    CHECK(value{x}.is_error()); \
-    CHECK(value{x}.tag.error == x)
+    CHECK(var_t{x}.is_nan());   \
+    CHECK(var_t{x}.is_error()); \
+    CHECK(var_t{x}.tag.error == x)
 
 TEST_CASE("[gason] boxing errors") {
     TEST_ERROR(error::expecting_string);

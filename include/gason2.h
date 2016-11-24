@@ -139,7 +139,7 @@ enum class error : unsigned int {
     unexpected_character,
 };
 
-union value {
+union var_t {
     char bytes[8];
     double number;
     struct {
@@ -150,10 +150,9 @@ union value {
         } tag;
     };
 
-    value() = default;
-    constexpr value(double x) : number(x) {}
-    constexpr value(type t, size_t x = 0) : payload(x), tag{t} {}
-    constexpr value(error t) : tag{static_cast<type>(t)} {}
+    constexpr var_t(double x) : number(x) {}
+    constexpr var_t(type t, size_t x = 0) : payload(x), tag{t} {}
+    constexpr var_t(error t) : tag{static_cast<type>(t)} {}
 
     constexpr bool is_nan() const { return tag.type > type::number; }
     constexpr bool is_error() const { return tag.type > type::object; }
@@ -161,12 +160,12 @@ union value {
 
 class node {
 protected:
-    value _data;
-    const value *_storage;
+    var_t _data;
+    const var_t *_storage;
 
 public:
-    node(value data = type::null, const value *storage = nullptr) : _data(data), _storage(storage) {}
-    node(const value *pointer, const value *storage) : node(*pointer, storage) {}
+    node(var_t data = type::null, const var_t *storage = nullptr) : _data(data), _storage(storage) {}
+    node(const var_t *pointer, const var_t *storage) : node(*pointer, storage) {}
 
     bool is_number() const { return !_data.is_nan(); }
     bool is_null() const { return _data.tag.type == type::null; }
@@ -182,20 +181,20 @@ public:
     const char *to_string(const char *defval = "") const { return is_string() ? _storage[_data.payload].bytes : defval; }
 
     class member {
-        const value *_pointer, *_storage;
+        const var_t *_pointer, *_storage;
 
     public:
-        member(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
+        member(const var_t *pointer = nullptr, const var_t *storage = nullptr) : _pointer(pointer), _storage(storage) {}
         node name() const { return {_pointer + 0, _storage}; }
         node value() const { return {_pointer + 1, _storage}; }
     };
 
     template <size_t N, typename T>
     class iterator {
-        const value *_pointer, *_storage;
+        const var_t *_pointer, *_storage;
 
     public:
-        iterator(const value *pointer = nullptr, const value *storage = nullptr) : _pointer(pointer), _storage(storage) {}
+        iterator(const var_t *pointer = nullptr, const var_t *storage = nullptr) : _pointer(pointer), _storage(storage) {}
         iterator &operator++() {
             _pointer += N;
             return *this;
@@ -270,7 +269,7 @@ struct stream {
 struct parser {
     static inline bool is_digit(int c) { return c >= '0' && c <= '9'; }
 
-    static value parse_number(stream &s) {
+    static var_t parse_number(stream &s) {
         unsigned long long integer = 0;
         double significand = 0;
         int fraction = 0;
@@ -348,7 +347,7 @@ struct parser {
         return cp;
     }
 
-    static value parse_string(stream &s, vector<value> &v) {
+    static var_t parse_string(stream &s, vector<var_t> &v) {
         for (size_t length = 0, offset = v.size();;) {
             v.resize(v.size() + 4);
 
@@ -364,7 +363,7 @@ struct parser {
                 if (ch == '"') {
                     *first++ = '\0';
                     length = first - (v.begin() + offset)->bytes;
-                    v.resize(offset + ((length + sizeof(value)) / sizeof(value)));
+                    v.resize(offset + ((length + sizeof(var_t)) / sizeof(var_t)));
                     return {type::string, offset};
                 }
 
@@ -421,10 +420,10 @@ struct parser {
         }
     }
 
-    vector<value> _backlog;
-    vector<value> _storage;
+    vector<var_t> _backlog;
+    vector<var_t> _storage;
 
-    value parse_value(stream &s) {
+    var_t parse_value(stream &s) {
         switch (s.skipws()) {
         case '"':
             s.getch();
@@ -518,7 +517,7 @@ struct parser {
 };
 
 class document : public node {
-    vector<value> _storage;
+    vector<var_t> _storage;
 
 public:
     bool parse(const char *json) {
@@ -534,7 +533,7 @@ public:
             return false;
         }
 
-        _storage = static_cast<vector<value> &&>(p._storage);
+        _storage = static_cast<vector<var_t> &&>(p._storage);
         node::_storage = _storage.data();
 
         return true;
