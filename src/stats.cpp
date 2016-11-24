@@ -17,7 +17,7 @@ struct Stat {
     size_t stringLength; // Number of code units in all strings
 };
 
-static void GenStat(Stat &stat, const gason2::node &v) {
+static void GenStat(Stat &stat, const gason2::value &v) {
     switch (v.type()) {
     case gason2::type::array:
         for (auto i : v.elements())

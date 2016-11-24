@@ -11,7 +11,7 @@
 
 TEST_CASE("[nativejson-benchmark] conformance string") {
     gason2::document doc;
-    gason2::node val;
+    gason2::value val;
     size_t n;
 
     TEST_STRING("[\"\"]", "");

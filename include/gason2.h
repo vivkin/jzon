@@ -158,14 +158,14 @@ union var_t {
     constexpr bool is_error() const { return tag.type > type::object; }
 };
 
-class node {
+class value {
 protected:
     var_t _data;
     const var_t *_storage;
 
 public:
-    node(var_t data = type::null, const var_t *storage = nullptr) : _data(data), _storage(storage) {}
-    node(const var_t *pointer, const var_t *storage) : node(*pointer, storage) {}
+    value(var_t data = type::null, const var_t *storage = nullptr) : _data(data), _storage(storage) {}
+    value(const var_t *pointer, const var_t *storage) : value(*pointer, storage) {}
 
     bool is_number() const { return !_data.is_nan(); }
     bool is_null() const { return _data.tag.type == type::null; }
@@ -185,8 +185,8 @@ public:
 
     public:
         member(const var_t *pointer = nullptr, const var_t *storage = nullptr) : _pointer(pointer), _storage(storage) {}
-        node name() const { return {_pointer + 0, _storage}; }
-        node value() const { return {_pointer + 1, _storage}; }
+        value name() const { return {_pointer + 0, _storage}; }
+        value value() const { return {_pointer + 1, _storage}; }
     };
 
     template <size_t N, typename T>
@@ -219,7 +219,7 @@ public:
         T end() const { return _last; }
     };
 
-    iterator_range<iterator<1, node>> elements() const {
+    iterator_range<iterator<1, value>> elements() const {
         auto pointer = _storage + _data.payload;
         return {{pointer, _storage}, {pointer + (is_array() ? pointer[-1].payload : 0), _storage}};
     }
@@ -237,15 +237,15 @@ public:
         return 0;
     }
 
-    node operator[](size_t index) const {
-        return index < size() ? node{_storage + _data.payload + index, _storage} : node{};
+    value operator[](size_t index) const {
+        return index < size() ? value{_storage + _data.payload + index, _storage} : value{};
     }
 
-    node operator[](int index) const {
+    value operator[](int index) const {
         return operator[](static_cast<size_t>(index));
     }
 
-    node operator[](const char *name) const {
+    value operator[](const char *name) const {
         for (auto i : members())
             if (!strcmp(name, i.name().to_string()))
                 return i.value();
@@ -516,7 +516,7 @@ struct parser {
     }
 };
 
-class document : public node {
+class document : public value {
     vector<var_t> _storage;
 
 public:
@@ -534,7 +534,7 @@ public:
         }
 
         _storage = static_cast<vector<var_t> &&>(p._storage);
-        node::_storage = _storage.data();
+        value::_storage = _storage.data();
 
         return true;
     }

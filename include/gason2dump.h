@@ -5,7 +5,7 @@
 
 namespace gason2 {
 struct dump {
-    static void stringify(vector<char> &s, node v) {
+    static void stringify(vector<char> &s, value v) {
         char buf[32];
 
         switch (v.type()) {
@@ -98,7 +98,7 @@ struct dump {
             s.append("\x20\x20\x20\x20", 4);
     }
 
-    static void prettify(vector<char> &s, node v, size_t depth = 0) {
+    static void prettify(vector<char> &s, value v, size_t depth = 0) {
         switch (v.type()) {
         case type::array:
             if (v.size()) {
