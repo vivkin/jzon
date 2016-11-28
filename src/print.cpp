@@ -4,31 +4,37 @@
 #include <stdlib.h>
 
 int main(int argc, char **argv) {
-    bool pretty = false;
+    if (argc < 2) {
+        fprintf(stderr, "usage: %s [-v] [file ...]\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }
+
+    bool verbose = false;
     for (int i = 1; i < argc; ++i) {
-        if (!strcmp(argv[i], "--pretty")) {
-            pretty = true;
+        if (!strcmp(argv[i], "-v") || !strcmp(argv[i], "--verbose")) {
+            verbose = true;
             continue;
         }
 
-        FILE *fp = fopen(argv[i], "r");
+        FILE *fp = strcmp(argv[i], "-") ? fopen(argv[i], "rb") : stdin;
         if (!fp) {
             perror(argv[i]);
             exit(EXIT_FAILURE);
         }
-        fseek(fp, 0, SEEK_END);
-        size_t size = ftell(fp);
-        fseek(fp, 0, SEEK_SET);
-        gason2::vector<char> source;
-        source.resize(size + 1);
-        source[size] = '\0';
-        fread(source.data(), 1, size, fp);
+
+        gason2::vector<char> src;
+        while (!feof(fp)) {
+            char buf[BUFSIZ];
+            src.append(buf, fread(buf, 1, sizeof(buf), fp));
+        }
+        src.push_back('\0');
+        src.pop_back();
         fclose(fp);
 
         gason2::document doc;
-        if (doc.parse(source.data())) {
+        if (doc.parse(src.data())) {
             gason2::vector<char> buffer;
-            if (pretty)
+            if (verbose)
                 gason2::dump::prettify(buffer, doc);
             else
                 gason2::dump::stringify(buffer, doc);
@@ -36,8 +42,9 @@ int main(int argc, char **argv) {
             buffer.pop_back();
             printf("%s\n", buffer.begin());
         } else {
-            gason2::dump::print_error(argv[i], source.data(), doc);
+            gason2::dump::print_error(argv[i], src.data(), doc);
         }
     }
+
     return 0;
 }

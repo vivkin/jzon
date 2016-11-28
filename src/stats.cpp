@@ -93,23 +93,24 @@ int main(int argc, char **argv) {
         fclose(fp);
 
         gason2::document doc;
-        if (!doc.parse(src.data()))
+        if (doc.parse(src.data())) {
+            Stat stat = {};
+            GenStat(stat, doc);
+            printf("%10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %s\n",
+                   stat.objectCount,
+                   stat.arrayCount,
+                   stat.numberCount,
+                   stat.stringCount,
+                   stat.trueCount,
+                   stat.falseCount,
+                   stat.nullCount,
+                   stat.memberCount,
+                   stat.elementCount,
+                   stat.stringLength,
+                   argv[i]);
+        } else {
             gason2::dump::print_error(argv[i], src.data(), doc);
-
-        Stat stat = {};
-        GenStat(stat, doc);
-        printf("%10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %10zu %s\n",
-               stat.objectCount,
-               stat.arrayCount,
-               stat.numberCount,
-               stat.stringCount,
-               stat.trueCount,
-               stat.falseCount,
-               stat.nullCount,
-               stat.memberCount,
-               stat.elementCount,
-               stat.stringLength,
-               argv[i]);
+        }
     }
 
     return 0;

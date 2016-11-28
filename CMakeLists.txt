@@ -18,7 +18,8 @@ file(GLOB TEST_SOURCES "test/*.cpp")
 add_executable(jzontests ${TEST_SOURCES})
 target_compile_definitions(jzontests PRIVATE
   DOCTEST_CONFIG_TREAT_CHAR_STAR_AS_STRING
-  DOCTEST_CONFIG_SUPER_FAST_ASSERTS)
+  DOCTEST_CONFIG_SUPER_FAST_ASSERTS
+  _USE_MATH_DEFINES)
 add_executable(jzonprint src/print.cpp)
 add_executable(jzonstats src/stats.cpp)
 

@@ -124,7 +124,7 @@ struct dump {
                     indent(s, depth + 1);
                     stringify(s, i.name());
                     s.append(": ", 2);
-                    prettify(s, i.value());
+                    prettify(s, i.value(), depth + 1);
                     comma = ',';
                 }
                 indent(s, depth);
