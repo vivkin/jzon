@@ -140,22 +140,22 @@ enum class error : unsigned int {
 };
 
 union var_t {
-    char bytes[8];
+    char string[sizeof(double)];
     double number;
     struct {
         unsigned int payload;
         union {
-            gason2::type type;
-            gason2::error error;
-        } tag;
+            enum type type;
+            enum error error;
+        };
     };
 
     constexpr var_t(double x) : number(x) {}
-    constexpr var_t(type t, size_t x = 0) : payload(x), tag{t} {}
-    constexpr var_t(error t) : tag{static_cast<type>(t)} {}
+    constexpr var_t(enum type t, size_t x = 0) : payload(x), type(t) {}
+    constexpr var_t(enum error e) : error(e) {}
 
-    constexpr bool is_nan() const { return tag.type > type::number; }
-    constexpr bool is_error() const { return tag.type > type::object; }
+    constexpr bool is_nan() const { return type > type::number; }
+    constexpr bool is_error() const { return type > type::object; }
 };
 
 class value {
@@ -168,25 +168,25 @@ public:
     value(const var_t *pointer, const var_t *storage) : value(*pointer, storage) {}
 
     bool is_number() const { return !_data.is_nan(); }
-    bool is_null() const { return _data.tag.type == type::null; }
-    bool is_bool() const { return _data.tag.type == type::boolean; }
-    bool is_string() const { return _data.tag.type == type::string; }
-    bool is_array() const { return _data.tag.type == type::array; }
-    bool is_object() const { return _data.tag.type == type::object; }
+    bool is_null() const { return _data.type == type::null; }
+    bool is_bool() const { return _data.type == type::boolean; }
+    bool is_string() const { return _data.type == type::string; }
+    bool is_array() const { return _data.type == type::array; }
+    bool is_object() const { return _data.type == type::object; }
 
-    gason2::type type() const { return _data.is_nan() ? _data.tag.type : type::number; }
+    enum type type() const { return _data.is_nan() ? _data.type : type::number; }
 
     double to_number(double defval = 0) const { return is_number() ? _data.number : defval; }
     bool to_bool(bool defval = false) const { return is_bool() ? _data.payload != 0 : defval; }
-    const char *to_string(const char *defval = "") const { return is_string() ? _storage[_data.payload].bytes : defval; }
+    const char *to_string(const char *defval = "") const { return is_string() ? _storage[_data.payload].string : defval; }
 
     class member {
         const var_t *_pointer, *_storage;
 
     public:
         member(const var_t *pointer = nullptr, const var_t *storage = nullptr) : _pointer(pointer), _storage(storage) {}
-        value name() const { return {_pointer + 0, _storage}; }
-        value value() const { return {_pointer + 1, _storage}; }
+        class value name() const { return {_pointer + 0, _storage}; }
+        class value value() const { return {_pointer + 1, _storage}; }
     };
 
     template <size_t N, typename T>
@@ -351,8 +351,8 @@ struct parser {
         for (size_t length = 0, offset = v.size();;) {
             v.resize(v.size() + 4);
 
-            char *first = (v.begin() + offset)->bytes + length;
-            char *last = v.end()->bytes - 5;
+            char *first = (v.begin() + offset)->string + length;
+            char *last = v.end()->string - 5;
 
             while (first < last) {
                 int ch = s.getch();
@@ -362,7 +362,7 @@ struct parser {
 
                 if (ch == '"') {
                     *first++ = '\0';
-                    length = first - (v.begin() + offset)->bytes;
+                    length = first - (v.begin() + offset)->string;
                     v.resize(offset + ((length + sizeof(var_t)) / sizeof(var_t)));
                     return {type::string, offset};
                 }
@@ -416,7 +416,7 @@ struct parser {
                 *first++ = (char)ch;
             }
 
-            length = first - (v.begin() + offset)->bytes;
+            length = first - (v.begin() + offset)->string;
         }
     }
 
@@ -539,7 +539,7 @@ public:
         return true;
     }
 
-    error error_code() const { return _data.tag.error; }
+    error error_code() const { return _data.error; }
     size_t error_offset() const { return _data.is_error() ? _data.payload : 0; }
 };
 }

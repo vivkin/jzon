@@ -39,7 +39,7 @@ TEST_CASE("[gason] boxing double") {
 #define TEST_TYPE(x)                  \
     CHECK(var_t{x}.is_nan());         \
     CHECK_FALSE(var_t{x}.is_error()); \
-    CHECK(var_t{x}.tag.type == x)
+    CHECK(var_t{x}.type == x)
 
 TEST_CASE("[gason] boxing types") {
     TEST_TYPE(type::null);
@@ -52,7 +52,7 @@ TEST_CASE("[gason] boxing types") {
 #define TEST_ERROR(x)           \
     CHECK(var_t{x}.is_nan());   \
     CHECK(var_t{x}.is_error()); \
-    CHECK(var_t{x}.tag.error == x)
+    CHECK(var_t{x}.error == x)
 
 TEST_CASE("[gason] boxing errors") {
     TEST_ERROR(error::expecting_string);
