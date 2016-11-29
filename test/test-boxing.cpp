@@ -5,9 +5,9 @@
 
 using namespace gason2;
 
-#define TEST_NOTNAN(x)              \
-    CHECK_FALSE(var_t{x}.is_nan()); \
-    CHECK_FALSE(var_t{-x}.is_nan())
+#define TEST_NOTNAN(x)           \
+    CHECK(value(x).is_number()); \
+    CHECK(value(-x).is_number());
 
 TEST_CASE("[gason] boxing double") {
     TEST_NOTNAN(0.0);
@@ -36,10 +36,9 @@ TEST_CASE("[gason] boxing double") {
     TEST_NOTNAN(NAN);
 }
 
-#define TEST_TYPE(x)                  \
-    CHECK(var_t{x}.is_nan());         \
-    CHECK_FALSE(var_t{x}.is_error()); \
-    CHECK(var_t{x}.type == x)
+#define TEST_TYPE(x)                   \
+    CHECK_FALSE(value(x).is_number()); \
+    CHECK(value(x).type() == x)
 
 TEST_CASE("[gason] boxing types") {
     TEST_TYPE(type::null);
@@ -49,10 +48,9 @@ TEST_CASE("[gason] boxing types") {
     TEST_TYPE(type::object);
 }
 
-#define TEST_ERROR(x)           \
-    CHECK(var_t{x}.is_nan());   \
-    CHECK(var_t{x}.is_error()); \
-    CHECK(var_t{x}.error == x)
+#define TEST_ERROR(x)                  \
+    CHECK_FALSE(value(x).is_number()); \
+    CHECK(static_cast<error>(value(x).type()) == x);
 
 TEST_CASE("[gason] boxing errors") {
     TEST_ERROR(error::expecting_string);

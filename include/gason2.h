@@ -15,10 +15,6 @@ class vector {
 public:
     vector() = default;
 
-    ~vector() {
-        free(_data);
-    }
-
     vector(const vector &x) {
         *this = x;
     }
@@ -26,6 +22,10 @@ public:
     vector(vector &&x) : _data(x._data), _size(x._size), _capacity(x._capacity) {
         x._data = nullptr;
         x._size = x._capacity = 0;
+    }
+
+    ~vector() {
+        free(_data);
     }
 
     vector &operator=(const vector &x) {
@@ -48,9 +48,8 @@ public:
     }
 
     void set_capacity(size_t n) {
-        if (n < _size) {
+        if (n < _size)
             _size = n;
-        }
         _data = static_cast<T *>(realloc(_data, sizeof(T) * n));
         _capacity = n;
     }
@@ -154,7 +153,6 @@ union var_t {
     constexpr var_t(enum type t, size_t x = 0) : payload(x), type(t) {}
     constexpr var_t(enum error e) : error(e) {}
 
-    constexpr bool is_nan() const { return type > type::number; }
     constexpr bool is_error() const { return type > type::object; }
 };
 
@@ -167,14 +165,14 @@ public:
     value(var_t data = type::null, const var_t *storage = nullptr) : _data(data), _storage(storage) {}
     value(const var_t *pointer, const var_t *storage) : value(*pointer, storage) {}
 
-    bool is_number() const { return !_data.is_nan(); }
+    bool is_number() const { return _data.type <= type::number; }
     bool is_null() const { return _data.type == type::null; }
     bool is_bool() const { return _data.type == type::boolean; }
     bool is_string() const { return _data.type == type::string; }
     bool is_array() const { return _data.type == type::array; }
     bool is_object() const { return _data.type == type::object; }
 
-    enum type type() const { return _data.is_nan() ? _data.type : type::number; }
+    enum type type() const { return is_number() ? type::number : _data.type; }
 
     double to_number(double defval = 0) const { return is_number() ? _data.number : defval; }
     bool to_bool(bool defval = false) const { return is_bool() ? _data.payload != 0 : defval; }
