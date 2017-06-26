@@ -183,8 +183,12 @@ public:
 
     public:
         member(const var_t *pointer = nullptr, const var_t *storage = nullptr) : _pointer(pointer), _storage(storage) {}
-        class value name() const { return {_pointer + 0, _storage}; }
-        class value value() const { return {_pointer + 1, _storage}; }
+        class value name() const {
+            return {_pointer + 0, _storage};
+        }
+        class value value() const {
+            return {_pointer + 1, _storage};
+        }
     };
 
     template <size_t N, typename T>
@@ -540,4 +544,4 @@ public:
     error error_code() const { return _data.error; }
     size_t error_offset() const { return _data.is_error() ? _data.payload : 0; }
 };
-}
+} // namespace gason2

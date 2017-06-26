@@ -139,7 +139,7 @@ struct dump {
         }
     }
 
-    static int print_error(const char *filename, const char *json, const document &doc) {
+    static int format_error(char *str, size_t n, const char *filename, const char *json, const document &doc) {
         int lineno = 1;
         const char *left = json;
         const char *right = json;
@@ -174,7 +174,15 @@ struct dump {
         }
         // clang-format on
 
-        return fprintf(stderr, "%s:%d:%d: error: %s\n%.*s\n%*s\n", filename, lineno, column, desc, int(right - left), left, int(endptr - left), "^");
+        return snprintf(str, n, "%s:%d:%d: error: %s\n%.*s\n%*s\n", filename, lineno, column, desc, int(right - left), left, int(endptr - left), "^");
+    }
+
+    static int print_error(const char *filename, const char *json, const document &doc) {
+        char buffer[256];
+        int n = format_error(buffer, sizeof(buffer), filename, json, doc);
+        if (n > 0)
+            return fwrite(buffer, 1, n, stderr);
+        return n;
     }
 };
-}
+} // namespace gason2
