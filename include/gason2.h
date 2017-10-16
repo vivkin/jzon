@@ -174,7 +174,9 @@ public:
 
     enum type type() const { return is_number() ? type::number : _data.type; }
 
-    double to_number(double defval = 0) const { return is_number() ? _data.number : defval; }
+    double to_number(double defval = 0.0) const { return is_number() ? _data.number : defval; }
+    float to_float(float defval = 0.0f) const { return is_number() ? (float)_data.number : defval; }
+    int to_int(int defval = 0) const { return is_number() ? (int)_data.number : defval; }
     bool to_bool(bool defval = false) const { return is_bool() ? _data.payload != 0 : defval; }
     const char *to_string(const char *defval = "") const { return is_string() ? _storage[_data.payload].string : defval; }
 
